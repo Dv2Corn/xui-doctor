@@ -1,0 +1,9 @@
+/bin/
+/xui-doctor
+/dist/
+tools/reality-matrix/x*/
+tools/reality-matrix/sb*/
+tools/reality-matrix/mihomo
+tools/reality-matrix/*.zip
+tools/reality-matrix/run/
+.DS_Store
