@@ -1,0 +1,492 @@
+{
+ "success": true,
+ "msg": "",
+ "obj": [
+  {
+   "id": 1,
+   "up": 0,
+   "down": 0,
+   "total": 0,
+   "remark": "reality-ios",
+   "subSortIndex": 1,
+   "excludeFromSub": false,
+   "enable": true,
+   "expiryTime": 0,
+   "trafficReset": "never",
+   "trafficResetDay": 1,
+   "lastTrafficResetTime": 0,
+   "clientStats": [
+    {
+     "id": 1,
+     "inboundId": 1,
+     "enable": true,
+     "email": "alice",
+     "uuid": "00000000-0000-4000-8000-000000000001",
+     "subId": "sub0000000000002",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 0,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    },
+    {
+     "id": 2,
+     "inboundId": 1,
+     "enable": false,
+     "email": "bob-expired",
+     "uuid": "00000000-0000-4000-8000-000000000002",
+     "subId": "sub0000000000004",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 1793661903974,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    },
+    {
+     "id": 3,
+     "inboundId": 1,
+     "enable": true,
+     "email": "carol-iplimit",
+     "uuid": "00000000-0000-4000-8000-000000000003",
+     "subId": "sub0000000000006",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 0,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    }
+   ],
+   "listen": "127.0.0.1",
+   "port": 24443,
+   "protocol": "vless",
+   "tag": "in-24443-tcp",
+   "shareAddrStrategy": "node",
+   "shareAddr": "",
+   "disableFlow": false,
+   "originNodeGuid": "REDACTED-00000004",
+   "settings": {
+    "clients": [
+     {
+      "comment": "",
+      "created_at": 1793748303000,
+      "email": "alice",
+      "enable": true,
+      "expiryTime": 0,
+      "flow": "xtls-rprx-vision",
+      "id": "00000000-0000-4000-8000-000000000001",
+      "limitIp": 0,
+      "reset": 0,
+      "resetDay": 0,
+      "resetMax": 0,
+      "resetWeekday": 0,
+      "security": "",
+      "subId": "sub0000000000002",
+      "tgId": 0,
+      "totalGB": 0,
+      "updated_at": 1793748303000
+     },
+     {
+      "comment": "",
+      "created_at": 1793748303000,
+      "email": "bob-expired",
+      "enable": false,
+      "expiryTime": 1793661903974,
+      "flow": "xtls-rprx-vision",
+      "id": "00000000-0000-4000-8000-000000000002",
+      "limitIp": 0,
+      "reset": 0,
+      "resetDay": 0,
+      "resetMax": 0,
+      "resetWeekday": 0,
+      "security": "",
+      "subId": "sub0000000000004",
+      "tgId": 0,
+      "totalGB": 0,
+      "updated_at": 1793748306000
+     },
+     {
+      "comment": "",
+      "created_at": 1793748303000,
+      "email": "carol-iplimit",
+      "enable": true,
+      "expiryTime": 0,
+      "flow": "xtls-rprx-vision",
+      "id": "00000000-0000-4000-8000-000000000003",
+      "limitIp": 2,
+      "reset": 0,
+      "resetDay": 0,
+      "resetMax": 0,
+      "resetWeekday": 0,
+      "security": "",
+      "subId": "sub0000000000006",
+      "tgId": 0,
+      "totalGB": 0,
+      "updated_at": 1793748303000
+     }
+    ],
+    "decryption": "none",
+    "fallbacks": []
+   },
+   "streamSettings": {
+    "network": "tcp",
+    "security": "reality",
+    "tcpSettings": {
+     "acceptProxyProtocol": false,
+     "header": {
+      "type": "none"
+     }
+    },
+    "realitySettings": {
+     "show": false,
+     "xver": 0,
+     "target": "www.nvidia.com:443",
+     "serverNames": [
+      "www.nvidia.com"
+     ],
+     "privateKey": "FRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRU",
+     "minClientVer": "",
+     "maxClientVer": "",
+     "maxTimediff": 0,
+     "shortIds": [
+      "00000006",
+      ""
+     ],
+     "settings": {
+      "publicKey": "R0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0c",
+      "fingerprint": "ios",
+      "serverName": "",
+      "spiderX": "/"
+     }
+    }
+   },
+   "sniffing": {
+    "enabled": false,
+    "destOverride": []
+   }
+  },
+  {
+   "id": 2,
+   "up": 0,
+   "down": 0,
+   "total": 0,
+   "remark": "reality-chrome",
+   "subSortIndex": 1,
+   "excludeFromSub": false,
+   "enable": true,
+   "expiryTime": 0,
+   "trafficReset": "never",
+   "trafficResetDay": 1,
+   "lastTrafficResetTime": 0,
+   "clientStats": [
+    {
+     "id": 4,
+     "inboundId": 2,
+     "enable": true,
+     "email": "frank",
+     "uuid": "00000000-0000-4000-8000-000000000008",
+     "subId": "sub0000000000012",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 0,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    }
+   ],
+   "listen": "127.0.0.1",
+   "port": 24446,
+   "protocol": "vless",
+   "tag": "in-24446-tcp",
+   "shareAddrStrategy": "node",
+   "shareAddr": "",
+   "disableFlow": false,
+   "originNodeGuid": "REDACTED-00000004",
+   "settings": {
+    "clients": [
+     {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "security": "",
+      "flow": "xtls-rprx-vision",
+      "email": "frank",
+      "limitIp": 0,
+      "totalGB": 0,
+      "expiryTime": 0,
+      "enable": true,
+      "tgId": 0,
+      "subId": "sub0000000000012",
+      "comment": "",
+      "reset": 0,
+      "resetDay": 0,
+      "resetWeekday": 0,
+      "resetMax": 0,
+      "created_at": 1793748303000,
+      "updated_at": 1793748303000
+     }
+    ],
+    "decryption": "none",
+    "fallbacks": []
+   },
+   "streamSettings": {
+    "network": "tcp",
+    "security": "reality",
+    "tcpSettings": {
+     "acceptProxyProtocol": false,
+     "header": {
+      "type": "none"
+     }
+    },
+    "realitySettings": {
+     "show": false,
+     "xver": 0,
+     "target": "www.nvidia.com:443",
+     "serverNames": [
+      "www.nvidia.com"
+     ],
+     "privateKey": "GRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRk",
+     "minClientVer": "",
+     "maxClientVer": "",
+     "maxTimediff": 0,
+     "shortIds": [
+      "00000006",
+      ""
+     ],
+     "settings": {
+      "publicKey": "SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSko",
+      "fingerprint": "chrome",
+      "serverName": "",
+      "spiderX": "/"
+     }
+    }
+   },
+   "sniffing": {
+    "enabled": false,
+    "destOverride": []
+   }
+  },
+  {
+   "id": 3,
+   "up": 0,
+   "down": 0,
+   "total": 0,
+   "remark": "vless-tls-file",
+   "subSortIndex": 1,
+   "excludeFromSub": false,
+   "enable": true,
+   "expiryTime": 0,
+   "trafficReset": "never",
+   "trafficResetDay": 1,
+   "lastTrafficResetTime": 0,
+   "clientStats": [
+    {
+     "id": 5,
+     "inboundId": 3,
+     "enable": true,
+     "email": "dave",
+     "uuid": "00000000-0000-4000-8000-000000000011",
+     "subId": "sub0000000000016",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 0,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    }
+   ],
+   "listen": "127.0.0.1",
+   "port": 24444,
+   "protocol": "vless",
+   "tag": "in-24444-tcp",
+   "shareAddrStrategy": "node",
+   "shareAddr": "",
+   "disableFlow": false,
+   "originNodeGuid": "REDACTED-00000004",
+   "settings": {
+    "clients": [
+     {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "security": "",
+      "email": "dave",
+      "limitIp": 0,
+      "totalGB": 0,
+      "expiryTime": 0,
+      "enable": true,
+      "tgId": 0,
+      "subId": "sub0000000000016",
+      "comment": "",
+      "reset": 0,
+      "resetDay": 0,
+      "resetWeekday": 0,
+      "resetMax": 0,
+      "created_at": 1793748304000,
+      "updated_at": 1793748304000
+     }
+    ],
+    "decryption": "none",
+    "fallbacks": []
+   },
+   "streamSettings": {
+    "network": "tcp",
+    "security": "tls",
+    "tcpSettings": {
+     "acceptProxyProtocol": false,
+     "header": {
+      "type": "none"
+     }
+    },
+    "tlsSettings": {
+     "serverName": "doctor.test",
+     "alpn": [
+      "h2",
+      "http/1.1"
+     ],
+     "certificates": [
+      {
+       "certificateFile": "/root/cert/short.crt",
+       "keyFile": "/root/cert/short.key"
+      }
+     ]
+    }
+   },
+   "sniffing": {
+    "enabled": false,
+    "destOverride": []
+   }
+  },
+  {
+   "id": 4,
+   "up": 0,
+   "down": 0,
+   "total": 0,
+   "remark": "trojan-tls-inline",
+   "subSortIndex": 1,
+   "excludeFromSub": false,
+   "enable": true,
+   "expiryTime": 0,
+   "trafficReset": "never",
+   "trafficResetDay": 1,
+   "lastTrafficResetTime": 0,
+   "clientStats": [
+    {
+     "id": 6,
+     "inboundId": 4,
+     "enable": true,
+     "email": "erin",
+     "uuid": "",
+     "subId": "sub0000000000017",
+     "up": 0,
+     "down": 0,
+     "expiryTime": 0,
+     "total": 0,
+     "reset": 0,
+     "resetDay": 0,
+     "resetWeekday": 0,
+     "resetMax": 0,
+     "resetCount": 0,
+     "lastOnline": 0,
+     "lastSubFetch": 0
+    }
+   ],
+   "listen": "127.0.0.1",
+   "port": 24445,
+   "protocol": "trojan",
+   "tag": "in-24445-tcp",
+   "shareAddrStrategy": "node",
+   "shareAddr": "",
+   "disableFlow": false,
+   "originNodeGuid": "REDACTED-00000004",
+   "settings": {
+    "clients": [
+     {
+      "security": "",
+      "password": "REDACTED-0000000c",
+      "email": "erin",
+      "limitIp": 0,
+      "totalGB": 0,
+      "expiryTime": 0,
+      "enable": true,
+      "tgId": 0,
+      "subId": "sub0000000000017",
+      "comment": "",
+      "reset": 0,
+      "resetDay": 0,
+      "resetWeekday": 0,
+      "resetMax": 0,
+      "created_at": 1793748304000,
+      "updated_at": 1793748304000
+     }
+    ],
+    "fallbacks": []
+   },
+   "streamSettings": {
+    "network": "tcp",
+    "security": "tls",
+    "tcpSettings": {
+     "acceptProxyProtocol": false,
+     "header": {
+      "type": "none"
+     }
+    },
+    "tlsSettings": {
+     "serverName": "doctor.test",
+     "alpn": [
+      "h2",
+      "http/1.1"
+     ],
+     "certificates": [
+      {
+       "certificate": [
+        "-----BEGIN CERTIFICATE-----",
+        "MIIBYDCCAQagAwIBAgIUR4lN0Q+X0FM6XpKjS/ppya6ow00wCgYIKoZIzj0EAwIw",
+        "HjEcMBoGA1UEAwwTZXhwaXJlZC5kb2N0b3IudGVzdDAeFw0yNjEwMDQyMzI1MDNa",
+        "Fw0yNjExMDEyMzI1MDNaMB4xHDAaBgNVBAMME2V4cGlyZWQuZG9jdG9yLnRlc3Qw",
+        "WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASSNrEh06hCXixsYqdhap3NUWGTWNtU",
+        "HXla4DLVtkgDvnYPj7C21KjpvblfaJ8Z61W25RpreoBGVI+ZWyrzW55soyIwIDAe",
+        "BgNVHREEFzAVghNleHBpcmVkLmRvY3Rvci50ZXN0MAoGCCqGSM49BAMCA0gAMEUC",
+        "IQCrr4vQR1/quM2TW++fHJB/CPT8bvdK7K7pBgvsZTQfEQIgLDgXONwckmx7bbJz",
+        "dFpEBl70l4mwBnmyMU2bDxYoz7o=",
+        "-----END CERTIFICATE-----"
+       ],
+       "key": [
+        "-----BEGIN PRIVATE KEY-----",
+        "REDACTED",
+        "-----END PRIVATE KEY-----"
+       ]
+      }
+     ]
+    }
+   },
+   "sniffing": {
+    "enabled": false,
+    "destOverride": []
+   }
+  }
+ ]
+}

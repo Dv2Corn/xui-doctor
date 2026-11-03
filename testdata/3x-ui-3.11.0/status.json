@@ -1,0 +1,70 @@
+{
+ "success": true,
+ "msg": "",
+ "obj": {
+  "cpu": 0,
+  "cpuCores": 0,
+  "logicalPro": 0,
+  "cpuSpeedMhz": 0,
+  "mem": {
+   "current": 0,
+   "total": 0
+  },
+  "swap": {
+   "current": 0,
+   "total": 0
+  },
+  "disk": {
+   "current": 0,
+   "total": 0
+  },
+  "diskIO": {
+   "read": 0,
+   "write": 0
+  },
+  "diskTraffic": {
+   "read": 0,
+   "write": 0
+  },
+  "xray": {
+   "state": "running",
+   "errorMsg": "",
+   "version": "26.10.21"
+  },
+  "amneziawg": {
+   "configured": false,
+   "running": false
+  },
+  "panelVersion": "3.11.0",
+  "panelGuid": "REDACTED-00000004",
+  "uptime": 0,
+  "loads": [
+   0,
+   0,
+   0
+  ],
+  "tcpCount": 0,
+  "udpCount": 0,
+  "netIO": {
+   "up": 0,
+   "down": 0,
+   "pktUp": 0,
+   "pktDown": 0
+  },
+  "netTraffic": {
+   "sent": 0,
+   "recv": 0,
+   "pktSent": 0,
+   "pktRecv": 0
+  },
+  "publicIP": {
+   "ipv4": "203.0.113.10",
+   "ipv6": "2001:db8::10"
+  },
+  "appStats": {
+   "threads": 0,
+   "mem": 0,
+   "uptime": 0
+  }
+ }
+}

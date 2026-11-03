@@ -1,0 +1,10 @@
+{
+ "success": true,
+ "msg": "",
+ "obj": {
+  "enabled": false,
+  "installed": false,
+  "usable": false,
+  "windows": false
+ }
+}

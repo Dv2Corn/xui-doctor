@@ -1,0 +1,47 @@
+{
+ "success": true,
+ "msg": "",
+ "obj": [
+  {
+   "groupId": "ki7qayezy1inh3ll",
+   "inboundIds": [
+    1
+   ],
+   "hosts": [
+    "127.0.0.1"
+   ],
+   "sortOrder": 0,
+   "remark": "edge-host",
+   "serverDescription": "",
+   "isDisabled": false,
+   "isHidden": false,
+   "tags": null,
+   "port": 0,
+   "security": "same",
+   "sni": "",
+   "snis": null,
+   "sniSharedRandom": false,
+   "hostHeader": "",
+   "path": "",
+   "alpn": null,
+   "fingerprint": "edge",
+   "cipherSuites": "",
+   "overrideSniFromAddress": false,
+   "keepSniBlank": false,
+   "pinnedPeerCertSha256": null,
+   "verifyPeerCertByName": "",
+   "allowInsecure": false,
+   "echConfigList": "",
+   "muxParams": "",
+   "sockoptParams": "",
+   "finalMask": "",
+   "vlessRoute": "",
+   "excludeFromSubTypes": null,
+   "nodeGuids": null,
+   "mihomoIpVersion": "",
+   "mihomoX25519": true,
+   "shuffleHost": false,
+   "randomCount": 1
+  }
+ ]
+}
