@@ -84,3 +84,10 @@ func TestReadCertFile(t *testing.T) {
 		t.Fatal("garbage must fail")
 	}
 }
+
+func TestLookupIP(t *testing.T) {
+	ips, err := (&Probe{Timeout: 2 * time.Second}).LookupIP("localhost")
+	if err != nil || len(ips) == 0 || !ips[0].IsLoopback() {
+		t.Fatalf("localhost: %v %v", ips, err)
+	}
+}

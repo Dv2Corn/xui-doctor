@@ -96,13 +96,32 @@ func parseProcNet(path, proto string, out map[string]bool) error {
 	return sc.Err()
 }
 
+// LookupIP resolves host with the system resolver.
+func (p *Probe) LookupIP(host string) ([]net.IP, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout())
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	ips := make([]net.IP, 0, len(addrs))
+	for _, a := range addrs {
+		ips = append(ips, a.IP)
+	}
+	return ips, nil
+}
+
+func (p *Probe) timeout() time.Duration {
+	if p.Timeout > 0 {
+		return p.Timeout
+	}
+	return 5 * time.Second
+}
+
 // DialTLS performs a TLS handshake like a browser would (SNI, h2 + http/1.1)
 // and verifies the certificate for sni against the system roots.
 func (p *Probe) DialTLS(addr, sni string) (*checks.TLSResult, error) {
-	timeout := p.Timeout
-	if timeout == 0 {
-		timeout = 8 * time.Second
-	}
+	timeout := p.timeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	d := tls.Dialer{

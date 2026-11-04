@@ -82,29 +82,45 @@ func checkReality(s *Snapshot) []Finding {
 	return out
 }
 
+// dialTarget handshakes with the REALITY target for every server name. The
+// target comes from the panel, so outside --local it is dialed only when it
+// resolves to public addresses, at the address resolved once here, and the
+// whole run makes at most MaxTargetProbes handshakes.
 func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Finding {
-	addr := target
-	if _, _, err := net.SplitHostPort(target); err != nil {
-		if strings.HasPrefix(target, "/") || strings.HasPrefix(target, "@") {
+	host, port, err := net.SplitHostPort(target)
+	if err != nil {
+		switch {
+		case strings.HasPrefix(target, "/") || strings.HasPrefix(target, "@"):
 			return []Finding{{Severity: Info, Subject: ib.label(), Message: "target is a unix socket; not dialed"}}
-		}
-		if isAllDigits(target) {
-			addr = "127.0.0.1:" + target
-		} else {
-			addr = net.JoinHostPort(target, "443")
+		case isAllDigits(target):
+			host, port = "127.0.0.1", target
+		default:
+			host, port = target, "443"
 		}
 	}
+	shown := net.JoinHostPort(host, port)
 	from := "from the panel host"
 	if !s.Local {
 		from = "from where xui-doctor runs (not necessarily the panel host)"
 	}
+	ip, skip := pickTargetIP(s, host)
+	if skip != "" {
+		return []Finding{{Severity: Info, Subject: ib.label() + " target " + shown, Message: "not dialed: " + skip}}
+	}
+	addr := net.JoinHostPort(ip.String(), port)
 	var out []Finding
+	skipped := 0
 	for _, sn := range names {
 		if sn == "" || strings.HasPrefix(sn, "*") {
 			continue
 		}
+		if s.probes >= MaxTargetProbes {
+			skipped++
+			continue
+		}
+		s.probes++
 		res, err := s.Probe.DialTLS(addr, sn)
-		subj := ib.label() + " target " + addr + " sni " + sn
+		subj := ib.label() + " target " + shown + " sni " + sn
 		if err != nil {
 			out = append(out, Finding{Severity: Critical, Subject: subj,
 				Message: "TLS handshake with the target failed " + from + ": " + err.Error(),
@@ -129,10 +145,50 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 				Fix:     "List only names the target's certificate covers in serverNames."})
 		}
 	}
+	if skipped > 0 {
+		out = append(out, Finding{Severity: Info, Subject: ib.label() + " target " + shown,
+			Message: fmt.Sprintf("%d server %s not dialed: the run is limited to %d target handshakes", skipped, plural(skipped, "name", "names"), MaxTargetProbes)})
+	}
 	if len(out) == 0 {
-		out = append(out, Finding{Severity: OK, Subject: ib.label(), Message: "target " + addr + " answers TLS 1.3 + h2 with a valid certificate " + from})
+		out = append(out, Finding{Severity: OK, Subject: ib.label(), Message: "target " + shown + " (" + ip.String() + ") answers TLS 1.3 + h2 with a valid certificate " + from})
 	}
 	return out
+}
+
+// pickTargetIP resolves host once and returns the address to dial, or why
+// the target is skipped. Without --local, addresses that are not public
+// (loopback, private, link-local, unspecified, multicast, CGNAT, ULA) are
+// refused: the target comes from the panel and must not point the probe at
+// the operator's own network.
+func pickTargetIP(s *Snapshot, host string) (net.IP, string) {
+	var ips []net.IP
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		ips = []net.IP{ip}
+	} else {
+		var err error
+		if ips, err = s.Probe.LookupIP(host); err != nil {
+			return nil, "cannot resolve " + host + ": " + err.Error()
+		}
+		if len(ips) == 0 {
+			return nil, "no address for " + host
+		}
+	}
+	if s.Local {
+		return ips[0], ""
+	}
+	for _, ip := range ips {
+		if !publicIP(ip) {
+			return nil, host + " resolves to the non-public address " + ip.String() + "; such targets are only dialed with --local (on the panel host)"
+		}
+	}
+	return ips[0], ""
+}
+
+var cgnat = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}
+
+func publicIP(ip net.IP) bool {
+	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsMulticast() || cgnat.Contains(ip))
 }
 
 func isAllDigits(s string) bool {

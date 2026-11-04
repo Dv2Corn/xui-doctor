@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -178,7 +179,15 @@ func TestRealityValidation(t *testing.T) {
 type fakeProbe struct {
 	certs  map[string]*x509.Certificate
 	listen map[string]bool
+	dns    map[string][]net.IP
 	dial   func(addr, sni string) (*TLSResult, error)
+}
+
+func (p fakeProbe) LookupIP(host string) ([]net.IP, error) {
+	if ips, ok := p.dns[host]; ok {
+		return ips, nil
+	}
+	return nil, errors.New("no such host")
 }
 
 func (p fakeProbe) ReadCertFile(path string) (*x509.Certificate, error) {
@@ -197,8 +206,8 @@ func TestRealityDial(t *testing.T) {
 		m["serverNames"] = []string{"good.example", "tls12.example", "nocert.example", "down.example", "noroots.example"}
 	}))
 	s.Dial = true
-	s.Probe = fakeProbe{dial: func(addr, sni string) (*TLSResult, error) {
-		if addr != "example.com:443" {
+	s.Probe = fakeProbe{dns: map[string][]net.IP{"example.com": {net.ParseIP("93.184.216.34")}}, dial: func(addr, sni string) (*TLSResult, error) {
+		if addr != "93.184.216.34:443" {
 			t.Errorf("addr %s", addr)
 		}
 		switch sni {
@@ -426,5 +435,60 @@ func TestJSONDocBothForms(t *testing.T) {
 	da, db := DecodeInbounds([]api.Inbound{a})[0], DecodeInbounds([]api.Inbound{b})[0]
 	if da.Stream.Security != "reality" || db.Stream.Security != "reality" || da.ParseError != "" || db.ParseError != "" {
 		t.Fatalf("%+v %+v", da, db)
+	}
+}
+
+func TestRealityDialPolicy(t *testing.T) {
+	var dialed []string
+	probe := fakeProbe{
+		dns: map[string][]net.IP{
+			"public.example":  {net.ParseIP("93.184.216.34")},
+			"private.example": {net.ParseIP("93.184.216.34"), net.ParseIP("10.0.0.5")},
+			"meta.example":    {net.ParseIP("169.254.169.254")},
+			"cgnat.example":   {net.ParseIP("100.64.1.1")},
+		},
+		dial: func(addr, sni string) (*TLSResult, error) {
+			dialed = append(dialed, addr)
+			return &TLSResult{Version: tls.VersionTLS13, ALPN: "h2"}, nil
+		},
+	}
+	run := func(local bool, target string) []Finding {
+		dialed = nil
+		s := snap("26.10.31", realityInbound(1, 443, "chrome", func(m map[string]any) { m["target"] = target }))
+		s.Dial, s.Local, s.Probe = true, local, probe
+		return checkReality(s)
+	}
+	for _, target := range []string{"private.example:443", "meta.example:443", "cgnat.example:443", "8443", "127.0.0.1:443", "[::1]:443", "0.0.0.0:443"} {
+		fs := run(false, target)
+		if len(dialed) != 0 || count(fs, Info, "not dialed") != 1 {
+			t.Errorf("%s dialed without --local: %v %+v", target, dialed, fs)
+		}
+	}
+	if run(true, "8443"); len(dialed) != 1 || dialed[0] != "127.0.0.1:8443" {
+		t.Errorf("--local must dial local targets: %v", dialed)
+	}
+	if run(false, "public.example:8443"); len(dialed) != 1 || dialed[0] != "93.184.216.34:8443" {
+		t.Errorf("must dial the address resolved once: %v", dialed)
+	}
+	if fs := run(false, "nxdomain.example:443"); count(fs, Info, "cannot resolve") != 1 || len(dialed) != 0 {
+		t.Errorf("unresolvable: %+v", fs)
+	}
+}
+
+func TestRealityDialCap(t *testing.T) {
+	names := make([]string, 25)
+	for i := range names {
+		names[i] = "n" + string(rune('a'+i)) + ".example"
+	}
+	dials := 0
+	s := snap("26.10.31", realityInbound(1, 443, "chrome", func(m map[string]any) { m["target"] = "93.184.216.34:443"; m["serverNames"] = names }))
+	s.Dial = true
+	s.Probe = fakeProbe{dial: func(addr, sni string) (*TLSResult, error) {
+		dials++
+		return &TLSResult{Version: tls.VersionTLS13, ALPN: "h2"}, nil
+	}}
+	fs := checkReality(s)
+	if dials != MaxTargetProbes || count(fs, Info, "5 server names not dialed") != 1 {
+		t.Fatalf("dials=%d %+v", dials, fs)
 	}
 }

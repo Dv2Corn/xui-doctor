@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -87,6 +88,8 @@ type Snapshot struct {
 	Local bool
 	// Dial is true when REALITY targets may be dialed from where the tool runs.
 	Dial bool
+	// probes counts TLS handshakes made so far (see MaxTargetProbes).
+	probes int
 }
 
 // Probe performs the optional host-side reads. Implemented in package local.
@@ -95,9 +98,15 @@ type Probe interface {
 	ReadCertFile(path string) (*x509.Certificate, error)
 	// Listening returns "tcp/443", "udp/443", ... for sockets bound on this host.
 	Listening() (map[string]bool, error)
-	// DialTLS connects to addr with the given SNI, offering h2 and http/1.1.
+	// LookupIP resolves a host name once; the checks then dial the address
+	// they vetted, so a second DNS answer cannot redirect the probe.
+	LookupIP(host string) ([]net.IP, error)
+	// DialTLS connects to addr (ip:port) with the given SNI, offering h2 and http/1.1.
 	DialTLS(addr, sni string) (*TLSResult, error)
 }
+
+// MaxTargetProbes caps TLS handshakes per run; the target is panel data.
+const MaxTargetProbes = 20
 
 // TLSResult describes a probe handshake.
 type TLSResult struct {
