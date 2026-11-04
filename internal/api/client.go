@@ -50,6 +50,10 @@ func New(baseURL string, creds Credentials, insecure bool, timeout time.Duration
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, fmt.Errorf("panel URL must look like https://host:port/basepath/")
 	}
+	if u.User != nil {
+		// Credentials in the URL would end up in output and error messages.
+		return nil, fmt.Errorf("do not put credentials in the panel URL (%s); use XUI_API_TOKEN or XUI_USERNAME/XUI_PASSWORD", u.Redacted())
+	}
 	u.RawQuery, u.Fragment = "", ""
 	jar, _ := cookiejar.New(nil)
 	tr := http.DefaultTransport.(*http.Transport).Clone()
