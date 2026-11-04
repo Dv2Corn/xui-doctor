@@ -3,9 +3,10 @@ package checks
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 const certWarnBefore = 7 * 24 * time.Hour
@@ -15,18 +16,21 @@ const certWarnBefore = 7 * 24 * time.Hour
 func checkTLS(s *Snapshot) []Finding {
 	var out []Finding
 	if s.PanelCert != nil {
-		out = append(out, certFinding(s.Now, "panel HTTPS certificate", s.PanelCert,
-			"Renew the panel certificate (Settings -> panel certificate, or your ACME client)")...)
+		out = append(out, certFinding(s.Now, i18n.T("subj.panel_cert"), s.PanelCert, i18n.T("tls.renew_panel"))...)
 	}
 	if s.Local && s.Settings != nil && s.Probe != nil {
-		for _, p := range []struct{ what, path string }{
-			{"panel certificate file", s.Settings.WebCertFile},
-			{"subscription certificate file", s.Settings.SubCertFile},
+		for _, p := range []struct {
+			what i18n.Text
+			path string
+			on   bool
+		}{
+			{i18n.T("tls.panel_file"), s.Settings.WebCertFile, true},
+			{i18n.T("tls.sub_file"), s.Settings.SubCertFile, s.Settings.SubEnable},
 		} {
-			if strings.TrimSpace(p.path) == "" || (p.what == "subscription certificate file" && !s.Settings.SubEnable) {
+			if strings.TrimSpace(p.path) == "" || !p.on {
 				continue
 			}
-			out = append(out, fileCert(s, p.what+" "+p.path, p.path)...)
+			out = append(out, fileCert(s, i18n.T("tls.subj_file", p.what, p.path), p.path)...)
 		}
 	}
 	if f, ok := s.skipped("inbounds"); ok {
@@ -39,8 +43,7 @@ func checkTLS(s *Snapshot) []Finding {
 			continue
 		}
 		if len(ib.Stream.TLSSettings.Certificates) == 0 {
-			out = append(out, Finding{Severity: Critical, Subject: ib.label(), Message: "TLS is on but no certificate is configured",
-				Fix: "Add a certificate (file paths or content) to the inbound's TLS settings."})
+			out = append(out, newFinding(Critical, ib.label(), i18n.T("tls.no_cert"), i18n.T("tls.no_cert.fix")))
 			continue
 		}
 		for _, c := range ib.Stream.TLSSettings.Certificates {
@@ -48,10 +51,10 @@ func checkTLS(s *Snapshot) []Finding {
 			case c.InlinePEM() != "":
 				cert, err := parsePEM([]byte(c.InlinePEM()))
 				if err != nil {
-					out = append(out, Finding{Severity: Critical, Subject: ib.label(), Message: "inline certificate does not parse: " + err.Error()})
+					out = append(out, newFinding(Critical, ib.label(), i18n.T("tls.inline_bad", err), i18n.Text{}))
 					continue
 				}
-				out = append(out, certFinding(s.Now, ib.label()+" inline certificate", cert, "Replace the inline certificate with a renewed one")...)
+				out = append(out, certFinding(s.Now, i18n.T("tls.subj_inline", ib.label()), cert, i18n.T("tls.renew_inline"))...)
 			case c.CertificateFile != "":
 				if !ib.local() {
 					continue // the file lives on the node
@@ -60,40 +63,37 @@ func checkTLS(s *Snapshot) []Finding {
 					files++
 					continue
 				}
-				out = append(out, fileCert(s, ib.label()+" "+c.CertificateFile, c.CertificateFile)...)
+				out = append(out, fileCert(s, i18n.T("tls.subj_file", ib.label(), c.CertificateFile), c.CertificateFile)...)
 			}
 		}
 	}
 	if files > 0 {
-		out = append(out, Finding{Severity: Info, Subject: "TLS inbounds",
-			Message: fmt.Sprintf("%d certificate %s not checked; run with --local on the panel host to read them", files, plural(files, "file", "files"))})
+		out = append(out, newFinding(Info, i18n.T("subj.tls_inbounds"),
+			i18n.T("tls.files_unchecked", files, i18n.Plural("n.cert_file", files)), i18n.Text{}))
 	}
 	return out
 }
 
-func fileCert(s *Snapshot, subject, path string) []Finding {
+func fileCert(s *Snapshot, subject i18n.Text, path string) []Finding {
 	cert, err := s.Probe.ReadCertFile(path)
 	if err != nil {
-		return []Finding{{Severity: Critical, Subject: subject, Message: "cannot read certificate: " + err.Error(),
-			Fix: "Check the path in the panel and the file permissions."}}
+		return []Finding{newFinding(Critical, subject, i18n.T("tls.read_failed", err), i18n.T("tls.read_failed.fix"))}
 	}
-	return certFinding(s.Now, subject, cert, "Renew the certificate and restart Xray (or wait for the panel to reload it)")
+	return certFinding(s.Now, subject, cert, i18n.T("tls.renew_file"))
 }
 
-func certFinding(now time.Time, subject string, c *x509.Certificate, fix string) []Finding {
+func certFinding(now time.Time, subject i18n.Text, c *x509.Certificate, fix i18n.Text) []Finding {
 	left := c.NotAfter.Sub(now)
 	exp := c.NotAfter.UTC().Format("2006-01-02 15:04 UTC")
 	switch {
 	case left <= 0:
-		return []Finding{{Severity: Critical, Subject: subject, Message: "certificate expired on " + exp, Fix: fix + "."}}
+		return []Finding{newFinding(Critical, subject, i18n.T("tls.expired", exp), i18n.T("tls.fix_now", fix))}
 	case left < certWarnBefore:
-		return []Finding{{Severity: Warn, Subject: subject,
-			Message: fmt.Sprintf("certificate expires in %s (%s)", roundDuration(left), exp),
-			Fix:     fix + "; short-lived (e.g. IP) certificates must renew automatically."}}
+		return []Finding{newFinding(Warn, subject, i18n.T("tls.expires_soon", roundDuration(left), exp), i18n.T("tls.fix_soon", fix))}
 	case now.Before(c.NotBefore):
-		return []Finding{{Severity: Warn, Subject: subject, Message: "certificate is not valid yet (from " + c.NotBefore.UTC().Format(time.RFC3339) + "); check the server clock"}}
+		return []Finding{newFinding(Warn, subject, i18n.T("tls.not_yet_valid", c.NotBefore.UTC().Format(time.RFC3339)), i18n.Text{})}
 	}
-	return []Finding{{Severity: OK, Subject: subject, Message: "valid until " + exp}}
+	return []Finding{newFinding(OK, subject, i18n.T("tls.valid_until", exp), i18n.Text{})}
 }
 
 func parsePEM(data []byte) (*x509.Certificate, error) {
@@ -101,7 +101,7 @@ func parsePEM(data []byte) (*x509.Certificate, error) {
 		var b *pem.Block
 		b, data = pem.Decode(data)
 		if b == nil {
-			return nil, fmt.Errorf("no PEM certificate found")
+			return nil, i18n.Errorf("tls.no_pem")
 		}
 		if b.Type == "CERTIFICATE" {
 			return x509.ParseCertificate(b.Bytes)
@@ -112,14 +112,16 @@ func parsePEM(data []byte) (*x509.Certificate, error) {
 // ParsePEM is exported for package local.
 func ParsePEM(data []byte) (*x509.Certificate, error) { return parsePEM(data) }
 
-func roundDuration(d time.Duration) string {
+func roundDuration(d time.Duration) i18n.Text {
 	if d >= 48*time.Hour {
 		days := int(d.Hours() / 24)
 		hours := int(d.Hours()) - days*24
-		return fmt.Sprintf("%d days %d hours", days, hours)
+		return i18n.T("dur.days_hours", days, i18n.Plural("n.day", days), hours, i18n.Plural("n.hour", hours))
 	}
 	if d >= time.Hour {
-		return fmt.Sprintf("%d hours", int(d.Hours()))
+		h := int(d.Hours())
+		return i18n.T("dur.count", h, i18n.Plural("n.hour", h))
 	}
-	return fmt.Sprintf("%d minutes", int(d.Minutes()))
+	m := int(d.Minutes())
+	return i18n.T("dur.count", m, i18n.Plural("n.minute", m))
 }

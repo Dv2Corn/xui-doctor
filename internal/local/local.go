@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Dv2Corn/xui-doctor/internal/checks"
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // Probe is the real implementation of checks.Probe.
@@ -63,7 +64,7 @@ func (p *Probe) ReadCertFile(path string) (*x509.Certificate, error) {
 // Listening reads /proc/net/{tcp,tcp6,udp,udp6} (Linux only).
 func (p *Probe) Listening() (map[string]bool, error) {
 	if runtime.GOOS != "linux" {
-		return nil, errors.New("only supported on Linux")
+		return nil, i18n.Errorf("local.linux_only")
 	}
 	dir := p.ProcNet
 	if dir == "" {
@@ -168,7 +169,7 @@ func (p *Probe) DialTLS(addr, sni string) (*checks.TLSResult, error) {
 		var ua x509.UnknownAuthorityError
 		res.UnknownRoot = errors.As(res.VerifyError, &ua)
 	} else {
-		res.VerifyError = errors.New("no certificate presented")
+		res.VerifyError = i18n.Errorf("local.no_cert")
 	}
 	return res, nil
 }

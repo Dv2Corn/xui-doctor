@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 	"github.com/Dv2Corn/xui-doctor/internal/version"
 )
 
@@ -19,27 +20,26 @@ func checkVersion(s *Snapshot) []Finding {
 		}
 		return nil
 	}
-	name := s.Kind
 	cur := s.Status.PanelVersion
-	desc := name + " " + cur
+	desc := i18n.T("version.desc", s.Kind, cur)
 	if s.Kind == KindStillUI && s.Status.UpstreamVersion != "" {
-		desc += " (based on 3x-ui " + s.Status.UpstreamVersion + ")"
+		desc = i18n.T("version.desc_based", s.Kind, cur, s.Status.UpstreamVersion)
 	}
+	panel := i18n.T("subj.panel")
 	if s.Offline {
-		return []Finding{{Severity: Info, Subject: "panel", Message: desc + "; latest release not looked up (--offline)"}}
+		return []Finding{newFinding(Info, panel, i18n.T("version.offline", desc), i18n.Text{})}
 	}
 	if s.LatestReleaseErr != "" {
-		return []Finding{{Severity: Info, Subject: "panel", Message: desc + "; latest release lookup failed: " + s.LatestReleaseErr}}
+		return []Finding{newFinding(Info, panel, i18n.T("version.lookup_failed", desc, s.LatestReleaseErr), i18n.Text{})}
 	}
 	cv, ok1 := version.Parse(cur)
 	lv, ok2 := version.Parse(s.LatestRelease)
 	if !ok1 || !ok2 {
-		return []Finding{{Severity: Info, Subject: "panel", Message: desc + "; latest release is " + s.LatestRelease}}
+		return []Finding{newFinding(Info, panel, i18n.T("version.latest_is", desc, s.LatestRelease), i18n.Text{})}
 	}
 	if version.Compare(cv, lv) < 0 {
-		return []Finding{{Severity: Warn, Subject: "panel",
-			Message: desc + " is older than the latest release " + lv.String() + " of " + ReleaseRepo(s.Kind),
-			Fix:     "Read the release notes, back up the database, then update from the panel or with the install script."}}
+		return []Finding{newFinding(Warn, panel, i18n.T("version.outdated", desc, lv.String(), ReleaseRepo(s.Kind)),
+			i18n.T("version.outdated.fix"))}
 	}
-	return []Finding{{Severity: OK, Subject: "panel", Message: desc + " is the latest release"}}
+	return []Finding{newFinding(OK, panel, i18n.T("version.latest", desc), i18n.Text{})}
 }

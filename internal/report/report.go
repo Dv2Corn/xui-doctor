@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Dv2Corn/xui-doctor/internal/checks"
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // Header describes the panel in the report.
@@ -22,6 +23,8 @@ type Header struct {
 	Auth            string `json:"auth"`
 	Local           bool   `json:"local"`
 	DialTargets     bool   `json:"dialTargets"`
+	// Lang is the language of text output; JSON output is always English.
+	Lang i18n.Lang `json:"-"`
 }
 
 // JSON writes {"header":..., "worst":..., "findings":[...]}.
@@ -52,22 +55,34 @@ func Clean(s string) string {
 	}, s)
 }
 
-// Text writes findings grouped by severity, worst first. Every string is
-// passed through Clean before it reaches the terminal.
+// Text writes findings grouped by severity, worst first, in h.Lang (English
+// when empty). Every string is passed through Clean before it reaches the
+// terminal.
 func Text(w io.Writer, h Header, fs []checks.Finding, showOK bool) {
+	l := h.Lang
+	if l == "" {
+		l = i18n.EN
+	}
 	h = Header{Tool: Clean(h.Tool), PanelURL: Clean(h.PanelURL), PanelKind: Clean(h.PanelKind),
 		PanelVersion: Clean(h.PanelVersion), UpstreamVersion: Clean(h.UpstreamVersion),
 		XrayVersion: Clean(h.XrayVersion), Auth: Clean(h.Auth), Local: h.Local, DialTargets: h.DialTargets}
 	fmt.Fprintf(w, "%s: %s\n", h.Tool, h.PanelURL)
-	panel := h.PanelKind + " " + h.PanelVersion
+	panel := i18n.T("version.desc", h.PanelKind, h.PanelVersion)
 	if h.UpstreamVersion != "" {
-		panel += " (based on 3x-ui " + h.UpstreamVersion + ")"
+		panel = i18n.T("version.desc_based", h.PanelKind, h.PanelVersion, h.UpstreamVersion)
 	}
-	fmt.Fprintf(w, "panel: %s, Xray %s, auth: %s", panel, orDash(h.XrayVersion), h.Auth)
+	var auth any = h.Auth
+	switch h.Auth {
+	case "API token":
+		auth = i18n.T("report.auth_token")
+	case "password":
+		auth = i18n.T("report.auth_password")
+	}
+	fmt.Fprint(w, i18n.T("report.panel", panel, orDash(h.XrayVersion), auth).In(l))
 	if h.Local {
-		fmt.Fprint(w, ", local checks on")
+		fmt.Fprint(w, i18n.T("report.local").In(l))
 	} else if h.DialTargets {
-		fmt.Fprint(w, ", dialing REALITY targets from this machine")
+		fmt.Fprint(w, i18n.T("report.dial").In(l))
 	}
 	fmt.Fprintln(w)
 
@@ -84,22 +99,32 @@ func Text(w io.Writer, h Header, fs []checks.Finding, showOK bool) {
 			cur = f.Severity
 			fmt.Fprintf(w, "\n== %s ==\n", cur)
 		}
+		subject, message, fix := f.In(l)
 		line := "[" + Clean(f.Check) + "] "
-		if f.Subject != "" {
-			line += Clean(f.Subject) + ": "
+		if subject != "" {
+			line += Clean(subject) + ": "
 		}
-		fmt.Fprintln(w, "- "+line+Clean(f.Message))
-		if f.Fix != "" {
-			fmt.Fprintln(w, "  fix: "+Clean(f.Fix))
+		fmt.Fprintln(w, "- "+line+Clean(message))
+		if fix != "" {
+			fmt.Fprintln(w, i18n.T("report.fix", Clean(fix)).In(l))
 		}
 	}
 	var parts []string
-	for _, s := range []checks.Severity{checks.Critical, checks.Warn, checks.Info, checks.OK} {
-		parts = append(parts, fmt.Sprintf("%d %s", counts[s], strings.ToLower(s.String())))
+	for _, s := range []struct {
+		sev  checks.Severity
+		name i18n.Text
+	}{
+		{checks.Critical, i18n.T("report.critical")},
+		{checks.Warn, i18n.T("report.warn")},
+		{checks.Info, i18n.T("report.info")},
+		{checks.OK, i18n.T("report.ok")},
+	} {
+		parts = append(parts, i18n.T("report.count", counts[s.sev], s.name).In(l))
 	}
-	fmt.Fprintf(w, "\nsummary: %s\n", strings.Join(parts, ", "))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, i18n.T("report.summary", strings.Join(parts, ", ")).In(l))
 	if !showOK && counts[checks.OK] > 0 {
-		fmt.Fprintln(w, "(OK lines hidden; use --verbose to show them)")
+		fmt.Fprintln(w, i18n.T("report.ok_hidden").In(l))
 	}
 }
 

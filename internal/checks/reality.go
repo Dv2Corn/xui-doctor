@@ -4,10 +4,11 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"net"
 	"net/netip"
 	"strings"
+
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // checkReality validates REALITY inbounds the way Xray-core's config loader
@@ -24,57 +25,53 @@ func checkReality(s *Snapshot) []Finding {
 			continue
 		}
 		if ib.ParseError != "" {
-			out = append(out, Finding{Severity: Warn, Subject: ib.label(), Message: "cannot parse inbound JSON: " + ib.ParseError})
+			out = append(out, newFinding(Warn, ib.label(), i18n.T("reality.parse_error", ib.ParseError), i18n.Text{}))
 			continue
 		}
 		r := ib.Stream.RealitySettings
 		if r == nil {
-			out = append(out, Finding{Severity: Critical, Subject: ib.label(), Message: "security is reality but realitySettings is missing",
-				Fix: "Open the inbound, re-select REALITY and save."})
+			out = append(out, newFinding(Critical, ib.label(), i18n.T("reality.no_settings"), i18n.T("reality.no_settings.fix")))
 			continue
 		}
 		sev := Critical
 		if !ib.Enable {
 			sev = Warn // a disabled inbound does not stop Xray today, but will when enabled
 		}
-		bad := func(msg, fix string) {
-			out = append(out, Finding{Severity: sev, Subject: ib.label(), Message: msg + " (Xray refuses to start with this inbound)", Fix: fix})
+		bad := func(msg, fix i18n.Text) {
+			out = append(out, newFinding(sev, ib.label(), i18n.T("reality.refused", msg), fix))
 		}
 		target := r.TargetString()
 		if target == "" {
-			bad(`empty "target" (dest)`, "Set the target to a TLS 1.3 site, e.g. example.com:443.")
+			bad(i18n.T("reality.empty_target"), i18n.T("reality.empty_target.fix"))
 		}
 		if len(r.ServerNames) == 0 {
-			bad(`empty "serverNames"`, "Add the domain(s) the target serves, e.g. the target's host name.")
+			bad(i18n.T("reality.empty_names"), i18n.T("reality.empty_names.fix"))
 		}
 		switch {
 		case strings.TrimSpace(r.PrivateKey) == "":
-			bad(`empty "privateKey"`, "Generate a new X25519 key pair in the inbound form (clients need the new public key).")
+			bad(i18n.T("reality.empty_key"), i18n.T("reality.empty_key.fix"))
 		default:
 			if k, err := base64.RawURLEncoding.DecodeString(r.PrivateKey); err != nil || len(k) != 32 {
-				bad(`"privateKey" is not a 32-byte base64url X25519 key`, "Generate a new X25519 key pair in the inbound form.")
+				bad(i18n.T("reality.bad_key"), i18n.T("reality.bad_key.fix"))
 			}
 		}
 		if len(r.ShortIDs) == 0 {
-			bad(`empty "shortIds"`, `Add at least one short ID (an empty string "" is allowed as one of them).`)
+			bad(i18n.T("reality.empty_sids"), i18n.T("reality.empty_sids.fix"))
 		}
 		for i, sid := range r.ShortIDs {
 			if len(sid) > 16 {
-				bad(fmt.Sprintf("shortIds[%d] is longer than 16 hex characters", i), "Use 0-16 hex characters, an even count.")
+				bad(i18n.T("reality.sid_long", i), i18n.T("reality.sid.fix"))
 				continue
 			}
 			if _, err := hex.DecodeString(sid); err != nil {
-				bad(fmt.Sprintf("shortIds[%d] is not an even-length hex string", i), "Use 0-16 hex characters, an even count.")
+				bad(i18n.T("reality.sid_not_hex", i), i18n.T("reality.sid.fix"))
 			}
 		}
 		if strings.TrimSpace(r.Settings.PublicKey) == "" && strings.TrimSpace(r.PrivateKey) != "" {
-			out = append(out, Finding{Severity: Warn, Subject: ib.label(),
-				Message: "the public key for share links is empty, so links carry no pbk and Xray clients refuse them (empty \"password\")",
-				Fix:     "Open the inbound and regenerate or re-save the key pair."})
+			out = append(out, newFinding(Warn, ib.label(), i18n.T("reality.no_pbk"), i18n.T("reality.no_pbk.fix")))
 		}
 		if r.Show {
-			out = append(out, Finding{Severity: Info, Subject: ib.label(),
-				Message: `REALITY "show" (debug output) is on`, Fix: "Turn it off unless you are debugging."})
+			out = append(out, newFinding(Info, ib.label(), i18n.T("reality.show"), i18n.T("reality.show.fix")))
 		}
 		if ib.Enable && (s.Dial || s.Local) && s.Probe != nil && target != "" && len(r.ServerNames) > 0 {
 			out = append(out, dialTarget(s, ib, target, r.ServerNames)...)
@@ -92,7 +89,7 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 	if err != nil {
 		switch {
 		case strings.HasPrefix(target, "/") || strings.HasPrefix(target, "@"):
-			return []Finding{{Severity: Info, Subject: ib.label(), Message: "target is a unix socket; not dialed"}}
+			return []Finding{newFinding(Info, ib.label(), i18n.T("reality.unix_target"), i18n.Text{})}
 		case isAllDigits(target):
 			host, port = "127.0.0.1", target
 		default:
@@ -100,13 +97,13 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 		}
 	}
 	shown := net.JoinHostPort(host, port)
-	from := "from the panel host"
+	from := i18n.T("reality.from_panel")
 	if !s.Local {
-		from = "from where xui-doctor runs (not necessarily the panel host)"
+		from = i18n.T("reality.from_here")
 	}
 	ip, skip := pickTargetIP(s, host)
-	if skip != "" {
-		return []Finding{{Severity: Info, Subject: ib.label() + " target " + shown, Message: "not dialed: " + skip}}
+	if skip.ID != "" {
+		return []Finding{newFinding(Info, i18n.T("reality.subj_target", ib.label(), shown), i18n.T("reality.not_dialed", skip), i18n.Text{})}
 	}
 	addr := net.JoinHostPort(ip.String(), port)
 	var out []Finding
@@ -121,37 +118,29 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 		}
 		s.probes++
 		res, err := s.Probe.DialTLS(addr, sn)
-		subj := ib.label() + " target " + shown + " sni " + sn
+		subj := i18n.T("reality.subj_sni", ib.label(), shown, sn)
 		if err != nil {
-			out = append(out, Finding{Severity: Critical, Subject: subj,
-				Message: "TLS handshake with the target failed " + from + ": " + err.Error(),
-				Fix:     "Pick a target that answers TLS 1.3 for this name from the server; REALITY copies its handshake."})
+			out = append(out, newFinding(Critical, subj, i18n.T("reality.handshake_failed", from, err), i18n.T("reality.handshake_failed.fix")))
 			continue
 		}
 		if res.Version != tls.VersionTLS13 {
-			out = append(out, Finding{Severity: Critical, Subject: subj, Message: "target does not negotiate TLS 1.3 " + from,
-				Fix: "REALITY needs a TLS 1.3 target; choose another site."})
+			out = append(out, newFinding(Critical, subj, i18n.T("reality.no_tls13", from), i18n.T("reality.no_tls13.fix")))
 		}
 		if res.ALPN != "h2" {
-			out = append(out, Finding{Severity: Warn, Subject: subj, Message: fmt.Sprintf("target did not select h2 (ALPN %q) %s", res.ALPN, from),
-				Fix: "Prefer a target that supports HTTP/2; browsers fingerprints offer h2."})
+			out = append(out, newFinding(Warn, subj, i18n.T("reality.no_h2", res.ALPN, from), i18n.T("reality.no_h2.fix")))
 		}
 		if res.VerifyError != nil && res.UnknownRoot {
-			out = append(out, Finding{Severity: Info, Subject: subj,
-				Message: "target certificate chain is not trusted by this machine's CA store (" + res.VerifyError.Error() + "); name not checked",
-				Fix:     "Install the ca-certificates package where xui-doctor runs, then run again."})
+			out = append(out, newFinding(Info, subj, i18n.T("reality.unknown_root", res.VerifyError), i18n.T("reality.unknown_root.fix")))
 		} else if res.VerifyError != nil {
-			out = append(out, Finding{Severity: Warn, Subject: subj,
-				Message: "target certificate does not verify for this server name " + from + ": " + res.VerifyError.Error(),
-				Fix:     "List only names the target's certificate covers in serverNames."})
+			out = append(out, newFinding(Warn, subj, i18n.T("reality.bad_cert", from, res.VerifyError), i18n.T("reality.bad_cert.fix")))
 		}
 	}
 	if skipped > 0 {
-		out = append(out, Finding{Severity: Info, Subject: ib.label() + " target " + shown,
-			Message: fmt.Sprintf("%d server %s not dialed: the run is limited to %d target handshakes", skipped, plural(skipped, "name", "names"), MaxTargetProbes)})
+		out = append(out, newFinding(Info, i18n.T("reality.subj_target", ib.label(), shown),
+			i18n.T("reality.dial_cap", skipped, i18n.Plural("n.server_name", skipped), MaxTargetProbes), i18n.Text{}))
 	}
 	if len(out) == 0 {
-		out = append(out, Finding{Severity: OK, Subject: ib.label(), Message: "target " + shown + " (" + ip.String() + ") answers TLS 1.3 + h2 with a valid certificate " + from})
+		out = append(out, newFinding(OK, ib.label(), i18n.T("reality.target_ok", shown, ip.String(), from), i18n.Text{}))
 	}
 	return out
 }
@@ -161,28 +150,28 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 // (loopback, private, link-local, unspecified, multicast, CGNAT, ULA) are
 // refused: the target comes from the panel and must not point the probe at
 // the operator's own network.
-func pickTargetIP(s *Snapshot, host string) (net.IP, string) {
+func pickTargetIP(s *Snapshot, host string) (net.IP, i18n.Text) {
 	var ips []net.IP
 	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
 		ips = []net.IP{ip}
 	} else {
 		var err error
 		if ips, err = s.Probe.LookupIP(host); err != nil {
-			return nil, "cannot resolve " + host + ": " + err.Error()
+			return nil, i18n.T("reality.no_resolve", host, err)
 		}
 		if len(ips) == 0 {
-			return nil, "no address for " + host
+			return nil, i18n.T("reality.no_address", host)
 		}
 	}
 	if s.Local {
-		return ips[0], ""
+		return ips[0], i18n.Text{}
 	}
 	for _, ip := range ips {
 		if !publicIP(ip) {
-			return nil, host + " resolves to the non-public address " + ip.String() + "; such targets are only dialed with --local (on the panel host)"
+			return nil, i18n.T("reality.non_public", host, ip.String())
 		}
 	}
-	return ips[0], ""
+	return ips[0], i18n.Text{}
 }
 
 // specialPrefixes are IANA special-purpose blocks (and documentation, test,

@@ -1,9 +1,10 @@
 package checks
 
 import (
-	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // checkClients looks at per-client state the panel keeps in clientStats
@@ -47,23 +48,22 @@ func checkClients(s *Snapshot) []Finding {
 				continue
 			}
 			if other, ok := seen[sec]; ok && other != c.Email {
-				out = append(out, Finding{Severity: Warn, Subject: ib.label(),
-					Message: fmt.Sprintf("clients %q and %q share one credential (UUID/password); Xray treats them as one user, so traffic, limits and removal hit the wrong client", other, c.Email),
-					Fix:     "Give one of the clients a new UUID/password and send it the new link."})
+				out = append(out, newFinding(Warn, ib.label(),
+					i18n.T("clients.shared_secret", other, c.Email), i18n.T("clients.shared_secret.fix")))
 				continue
 			}
 			seen[sec] = c.Email
 		}
 	}
 	if len(expired) > 0 {
-		out = append(out, Finding{Severity: Warn, Subject: "clients",
-			Message: fmt.Sprintf("%d %s past expiry but still enabled in the panel's traffic table: %s", len(expired), plural(len(expired), "client is", "clients are"), list(expired)),
-			Fix:     "The panel's traffic job disables these periodically while Xray is running; if they stay enabled, check that Xray runs and read the panel log."})
+		out = append(out, newFinding(Warn, i18n.T("subj.clients"),
+			i18n.T("clients.expired", len(expired), i18n.Plural("n.client_is", len(expired)), list(expired)),
+			i18n.T("clients.expired.fix")))
 	}
 	if len(exhausted) > 0 {
-		out = append(out, Finding{Severity: Warn, Subject: "clients",
-			Message: fmt.Sprintf("%d %s used up the traffic quota but still enabled: %s", len(exhausted), plural(len(exhausted), "client has", "clients have"), list(exhausted)),
-			Fix:     "Same as above: the panel's traffic job should disable them; check the panel log."})
+		out = append(out, newFinding(Warn, i18n.T("subj.clients"),
+			i18n.T("clients.exhausted", len(exhausted), i18n.Plural("n.client_has", len(exhausted)), list(exhausted)),
+			i18n.T("clients.exhausted.fix")))
 	}
 	if len(limited) > 0 {
 		out = append(out, ipLimitFinding(s, limited))
@@ -73,19 +73,18 @@ func checkClients(s *Snapshot) []Finding {
 
 func ipLimitFinding(s *Snapshot, limited map[string]bool) Finding {
 	n := len(limited)
-	base := fmt.Sprintf("%d %s an IP limit (limitIp)", n, plural(n, "client has", "clients have"))
-	how := "the panel counts each client's source IPs from Xray's online stats and bans extra IPs with fail2ban (Windows: drops the connections); " +
-		"clients behind CGNAT or switching networks can trip it"
+	base := i18n.T("clients.iplimit", n, i18n.Plural("n.client_has_limit", n))
+	how := i18n.T("clients.iplimit.how")
+	subj := i18n.T("subj.clients")
 	if s.Fail2ban == nil {
-		return Finding{Severity: Info, Subject: "clients", Message: base + "; " + how + ". fail2ban status not readable"}
+		return newFinding(Info, subj, i18n.T("clients.iplimit.no_status", base, how), i18n.Text{})
 	}
 	f := s.Fail2ban
 	if !f.Windows && !(f.Enabled && f.Installed && f.Usable) {
-		return Finding{Severity: Warn, Subject: "clients",
-			Message: base + " but fail2ban is not usable on the panel host (enabled=" + yn(f.Enabled) + ", installed=" + yn(f.Installed) + ", usable=" + yn(f.Usable) + "), so the limit is not enforced",
-			Fix:     "Install/enable fail2ban (the x-ui (or still-ui) shell menu -> Fail2ban / IP Limit), or remove the limits so nobody relies on them."}
+		return newFinding(Warn, subj, i18n.T("clients.iplimit.unenforced", base, yn(f.Enabled), yn(f.Installed), yn(f.Usable)),
+			i18n.T("clients.iplimit.unenforced.fix"))
 	}
-	return Finding{Severity: Info, Subject: "clients", Message: base + "; " + how}
+	return newFinding(Info, subj, i18n.T("clients.iplimit.info", base, how), i18n.Text{})
 }
 
 func clientSecret(protocol string, c Client) string {
@@ -100,14 +99,14 @@ func clientSecret(protocol string, c Client) string {
 	return ""
 }
 
-func list(m map[string]bool) string {
+func list(m map[string]bool) any {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	if len(keys) > 10 {
-		return strings.Join(keys[:10], ", ") + fmt.Sprintf(" and %d more", len(keys)-10)
+		return i18n.T("list.more", strings.Join(keys[:10], ", "), len(keys)-10)
 	}
 	return strings.Join(keys, ", ")
 }

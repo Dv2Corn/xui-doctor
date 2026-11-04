@@ -104,7 +104,7 @@ func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 
 func short(err error) string {
 	if errors.Is(err, api.ErrForbidden) {
-		return "these credentials may not read it, e.g. a monitor-scope token"
+		return checks.NotPermitted
 	}
 	msg := err.Error()
 	if len(msg) > 200 {
