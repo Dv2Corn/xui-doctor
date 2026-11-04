@@ -6,12 +6,12 @@ package checks
 import (
 	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/Dv2Corn/xui-doctor/internal/api"
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // Severity orders findings. Higher is worse.
@@ -40,13 +40,41 @@ func (s Severity) String() string {
 // MarshalJSON writes the severity as its name.
 func (s Severity) MarshalJSON() ([]byte, error) { return json.Marshal(s.String()) }
 
-// Finding is one result line.
+// Finding is one result line. Subject, Message and Fix hold the English
+// text (what JSON output carries); In renders them in another language.
 type Finding struct {
-	Check    string   `json:"check"`
+	Check string `json:"check"`
+	// ID names the message, stable across languages and wording changes.
+	ID       string   `json:"id,omitempty"`
 	Severity Severity `json:"severity"`
 	Subject  string   `json:"subject,omitempty"`
 	Message  string   `json:"message"`
 	Fix      string   `json:"fix,omitempty"`
+
+	subject, message, fix i18n.Text
+}
+
+// newFinding builds a finding from catalog texts; fix may be the zero Text.
+func newFinding(sev Severity, subject, message, fix i18n.Text) Finding {
+	return Finding{ID: message.ID, Severity: sev,
+		Subject: subject.String(), Message: message.String(), Fix: fix.String(),
+		subject: subject, message: message, fix: fix}
+}
+
+// In returns subject, message and fix in language l. Findings built
+// without catalog texts return their strings unchanged.
+func (f Finding) In(l i18n.Lang) (subject, message, fix string) {
+	subject, message, fix = f.Subject, f.Message, f.Fix
+	if f.subject.ID != "" {
+		subject = f.subject.In(l)
+	}
+	if f.message.ID != "" {
+		message = f.message.In(l)
+	}
+	if f.fix.ID != "" {
+		fix = f.fix.In(l)
+	}
+	return subject, message, fix
 }
 
 // Panel kinds.
@@ -145,7 +173,7 @@ func Run(s *Snapshot) []Finding {
 	for _, c := range All() {
 		fs := c.Run(s)
 		if len(fs) == 0 {
-			fs = []Finding{{Severity: OK, Message: "no problems found"}}
+			fs = []Finding{newFinding(OK, i18n.Text{}, i18n.T("check.ok"), i18n.Text{})}
 		}
 		for i := range fs {
 			fs[i].Check = c.ID
@@ -288,27 +316,41 @@ func DecodeInbounds(in []api.Inbound) []Inbound {
 }
 
 // label names an inbound in findings without exposing secrets.
-func (ib *Inbound) label() string {
+func (ib *Inbound) label() i18n.Text {
 	r := ib.Remark
 	if r == "" {
 		r = ib.Tag
 	}
-	return fmt.Sprintf("inbound #%d %q (%s, port %d)", ib.ID, r, ib.Protocol, ib.Port)
+	return i18n.T("inbound.label", ib.ID, r, ib.Protocol, ib.Port)
 }
 
 // local reports whether the inbound runs on this panel's own Xray (not on a node).
 func (ib *Inbound) local() bool { return ib.NodeID == nil }
 
-func (s *Snapshot) skipped(section string) (Finding, bool) {
-	if msg, ok := s.Errors[section]; ok {
-		return Finding{Severity: Info, Message: "skipped: could not read " + section + " (" + msg + ")"}, true
-	}
-	return Finding{}, false
-}
+// NotPermitted is the Errors value for a section the credentials may not read.
+const NotPermitted = "these credentials may not read it, e.g. a monitor-scope token"
 
-func plural(n int, one, many string) string {
-	if n == 1 {
-		return one
+func (s *Snapshot) skipped(section string) (Finding, bool) {
+	msg, ok := s.Errors[section]
+	if !ok {
+		return Finding{}, false
 	}
-	return many
+	var name any = section
+	switch section {
+	case "status":
+		name = i18n.T("section.status")
+	case "inbounds":
+		name = i18n.T("section.inbounds")
+	case "hosts":
+		name = i18n.T("section.hosts")
+	case "settings":
+		name = i18n.T("section.settings")
+	case "fail2ban":
+		name = i18n.T("section.fail2ban")
+	}
+	var why any = msg
+	if msg == NotPermitted {
+		why = i18n.T("section.not_permitted")
+	}
+	return newFinding(Info, i18n.Text{}, i18n.T("check.skipped", name, why), i18n.Text{}), true
 }

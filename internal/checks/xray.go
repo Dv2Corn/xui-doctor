@@ -1,10 +1,10 @@
 package checks
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 	"github.com/Dv2Corn/xui-doctor/internal/version"
 )
 
@@ -42,7 +42,8 @@ func fpClass(fp string) string {
 
 type fpUse struct {
 	ib     *Inbound
-	where  string // "inbound" or `host "remark"`
+	host   bool   // a subscription host, not the inbound itself
+	remark string // the host's remark
 	fp     string
 	mihomo bool // host sets mihomoX25519
 }
@@ -63,27 +64,23 @@ func checkXrayCompat(s *Snapshot) []Finding {
 		if len(msg) > 300 {
 			msg = msg[:300] + "..."
 		}
-		f := Finding{Severity: Critical, Subject: "xray", Message: "Xray is not running (state: " + x.State + ")",
-			Fix: "Open the panel's overview and check the Xray log; restart Xray after fixing the config."}
+		m := i18n.T("xray.not_running", x.State)
 		if msg != "" {
-			f.Message += ": " + msg
+			m = i18n.T("xray.not_running_msg", x.State, msg)
 		}
-		out = append(out, f)
+		out = append(out, newFinding(Critical, i18n.T("subj.xray"), m, i18n.T("xray.not_running.fix")))
 	}
 
 	xv, ok := version.Parse(x.Version)
 	if !ok {
-		return append(out, Finding{Severity: Info, Subject: "xray",
-			Message: fmt.Sprintf("cannot parse the Xray version %q; REALITY compatibility not assessed", x.Version)})
+		return append(out, newFinding(Info, i18n.T("subj.xray"), i18n.T("xray.bad_version", x.Version), i18n.Text{}))
 	}
 
 	if s.Inbounds == nil {
 		if f, ok := s.skipped("inbounds"); ok {
 			if version.AtLeast(xv, xrayMLKEMRequired) {
-				return append(out, Finding{Severity: Warn, Subject: "xray",
-					Message: "Xray " + xv.String() + " (>= 26.9.8) refuses REALITY ClientHellos without an X25519MLKEM768 key share " +
-						"(fp=ios/edge/qq links, sing-box clients); inbound fingerprints could not be read with these credentials",
-					Fix: "Run again with an admin-scope token or the panel login to see which inbounds are affected."}, f)
+				return append(out, newFinding(Warn, i18n.T("subj.xray"), i18n.T("xray.mlkem_unread", xv.String()),
+					i18n.T("xray.mlkem_unread.fix")), f)
 			}
 			return append(out, f)
 		}
@@ -101,12 +98,11 @@ func checkXrayCompat(s *Snapshot) []Finding {
 		reality = append(reality, ib)
 	}
 	if len(onNodes) > 0 {
-		out = append(out, Finding{Severity: Info, Subject: "nodes",
-			Message: fmt.Sprintf("%d REALITY %s on remote nodes: their Xray version is not reported here; run xui-doctor against each node",
-				len(onNodes), plural(len(onNodes), "inbound runs", "inbounds run"))})
+		out = append(out, newFinding(Info, i18n.T("subj.nodes"),
+			i18n.T("xray.on_nodes", len(onNodes), i18n.Plural("n.inbound_runs", len(onNodes))), i18n.Text{}))
 	}
 	if len(reality) == 0 {
-		return append(out, Finding{Severity: OK, Subject: "xray", Message: "Xray " + xv.String() + "; no enabled REALITY inbounds on this panel's core"})
+		return append(out, newFinding(OK, i18n.T("subj.xray"), i18n.T("xray.no_reality", xv.String()), i18n.Text{}))
 	}
 
 	switch {
@@ -118,50 +114,45 @@ func checkXrayCompat(s *Snapshot) []Finding {
 			if strings.TrimSpace(ib.Stream.RealitySettings.MinClientVer) != "" {
 				continue
 			}
-			out = append(out, Finding{Severity: Warn, Subject: ib.label(),
-				Message: "Xray " + xv.String() + " defaults REALITY minClientVer to 26.3.27: sing-box clients (Hiddify, Karing, NekoBox...), " +
-					"mihomo/Clash clients and Xray clients older than 26.3.27 are refused",
-				Fix: `Set "minClientVer" explicitly on the inbound (e.g. "0.0.0" accepts every client), or switch Xray to 26.6.27.`})
+			out = append(out, newFinding(Warn, ib.label(), i18n.T("xray.min_client_ver", xv.String()), i18n.T("xray.min_client_ver.fix")))
 			warned++
 		}
 		if warned == 0 {
-			out = append(out, Finding{Severity: OK, Subject: "xray", Message: "Xray " + xv.String() + ": REALITY inbounds set minClientVer explicitly"})
+			out = append(out, newFinding(OK, i18n.T("subj.xray"), i18n.T("xray.min_client_ver_set", xv.String()), i18n.Text{}))
 		}
 	default:
-		out = append(out, Finding{Severity: OK, Subject: "xray",
-			Message: "Xray " + xv.String() + " accepts REALITY ClientHellos with or without ML-KEM (sing-box, mihomo and fp=ios clients work)"})
+		out = append(out, newFinding(OK, i18n.T("subj.xray"), i18n.T("xray.compatible", xv.String()), i18n.Text{}))
 	}
 	return out
 }
 
 func mlkemFindings(s *Snapshot, xv version.V, reality []*Inbound) []Finding {
 	var out []Finding
-	head := "Xray " + xv.String() + " (>= 26.9.8) refuses REALITY ClientHellos without an X25519MLKEM768 key share"
-	pinFix := "or pin Xray 26.6.27 in the panel's Xray version switcher (keeps old clients working, loses newer core fixes)"
-	sizeNote := "ML-KEM ClientHellos are ~1.5-1.9 KB and need two TCP segments; a few mobile networks drop those."
+	head := i18n.T("xray.mlkem_head", xv.String())
+	pinFix := i18n.T("xray.pin_fix")
 
 	var uses []fpUse
 	byID := map[int]*Inbound{}
 	for _, ib := range reality {
 		byID[ib.ID] = ib
-		uses = append(uses, fpUse{ib: ib, where: "inbound", fp: ib.Stream.RealitySettings.Settings.Fingerprint})
+		uses = append(uses, fpUse{ib: ib, fp: ib.Stream.RealitySettings.Settings.Fingerprint})
 	}
 	for _, h := range hostRefs(s, byID) {
-		uses = append(uses, fpUse{ib: h.ib, where: fmt.Sprintf("host %q", h.remark), fp: h.fp, mihomo: h.mihomo})
+		uses = append(uses, fpUse{ib: h.ib, host: true, remark: h.remark, fp: h.fp, mihomo: h.mihomo})
 	}
 
-	refused := map[string][]string{} // fp -> places
-	random := map[string][]string{}
-	var mihomoHosts []string
+	refused := map[string][]i18n.Text{} // fp -> places
+	random := map[string][]i18n.Text{}
+	var mihomoHosts []i18n.Text
 	for _, u := range uses {
 		place := u.ib.label()
-		if u.where != "inbound" {
-			place = u.where + " -> " + place
+		if u.host {
+			place = i18n.T("xray.host_place", u.remark, place)
 		}
 		if u.mihomo {
 			mihomoHosts = append(mihomoHosts, place)
 		}
-		if u.where != "inbound" && u.fp == "" {
+		if u.host && u.fp == "" {
 			continue // the host inherits the inbound's fingerprint
 		}
 		switch fpClass(u.fp) {
@@ -170,34 +161,24 @@ func mlkemFindings(s *Snapshot, xv version.V, reality []*Inbound) []Finding {
 		case "random":
 			random[u.fp] = append(random[u.fp], place)
 		case "unknown":
-			out = append(out, Finding{Severity: Info, Subject: place,
-				Message: fmt.Sprintf("fingerprint %q was not tested against an ML-KEM-only REALITY server", u.fp)})
+			out = append(out, newFinding(Info, place, i18n.T("xray.fp_untested", u.fp), i18n.Text{}))
 		}
 	}
 	for _, fp := range sortedKeys(refused) {
 		for _, place := range refused[fp] {
-			out = append(out, Finding{Severity: Critical, Subject: place,
-				Message: head + "; share links here use fp=" + fp + ", which has none, so clients using them cannot connect",
-				Fix:     "Set the uTLS fingerprint to chrome, firefox or safari and let clients refresh the subscription, " + pinFix + ". " + sizeNote})
+			out = append(out, newFinding(Critical, place, i18n.T("xray.fp_refused", head, fp),
+				i18n.T("xray.fp_refused.fix", pinFix, i18n.T("xray.size_note"))))
 		}
 	}
 	for _, fp := range sortedKeys(random) {
 		for _, place := range random[fp] {
-			out = append(out, Finding{Severity: Warn, Subject: place,
-				Message: head + "; fp=" + fp + " picks a hello per connection, and some picks have no ML-KEM share, so connections fail at random",
-				Fix:     "Use chrome, firefox or safari instead, " + pinFix + "."})
+			out = append(out, newFinding(Warn, place, i18n.T("xray.fp_random", head, fp), i18n.T("xray.fp_random.fix", pinFix)))
 		}
 	}
 	for _, place := range mihomoHosts {
-		out = append(out, Finding{Severity: Critical, Subject: place,
-			Message: head + `; this host has "Mihomo X25519" on, so its Clash subscription turns ML-KEM off and mihomo clients are refused`,
-			Fix:     `Turn "Mihomo X25519" off for this host (it only makes sense with Xray < 26.9.8), ` + pinFix + "."})
+		out = append(out, newFinding(Critical, place, i18n.T("xray.mihomo_host", head), i18n.T("xray.mihomo_host.fix", pinFix)))
 	}
-	out = append(out, Finding{Severity: Warn, Subject: "REALITY clients",
-		Message: head + ": sing-box based clients (sing-box, Hiddify, Karing, NekoBox; tested 1.12.12 and 1.14.4) cannot connect with any fingerprint; " +
-			"mihomo/Clash clients connect only with reality-opts support-x25519mlkem768: true and a chrome/firefox/safari fingerprint " +
-			"(the panel's Clash subscription sets it; imported vless:// links and hand-written configs usually do not)",
-		Fix: "Tell sing-box/Hiddify users to use an Xray-based client or the Clash subscription in a mihomo client, " + pinFix + "."})
+	out = append(out, newFinding(Warn, i18n.T("subj.reality_clients"), i18n.T("xray.clients", head), i18n.T("xray.clients.fix", pinFix)))
 	return out
 }
 
@@ -229,7 +210,7 @@ func hostRefs(s *Snapshot, reality map[int]*Inbound) []hostRef {
 	return out
 }
 
-func sortedKeys(m map[string][]string) []string {
+func sortedKeys(m map[string][]i18n.Text) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

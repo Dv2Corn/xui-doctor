@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // transports returns the sockets ("tcp", "udp") an inbound binds, following
@@ -87,7 +89,7 @@ func bindsPort(ib *Inbound) bool {
 }
 
 type binder struct {
-	name   string
+	name   i18n.Text
 	listen string
 }
 
@@ -124,11 +126,11 @@ func checkPorts(s *Snapshot) []Finding {
 	if s.Settings != nil {
 		if s.Settings.WebPort > 0 {
 			k := key{-1, "tcp", s.Settings.WebPort}
-			groups[k] = append(groups[k], binder{name: "the panel web server", listen: s.Settings.WebListen})
+			groups[k] = append(groups[k], binder{name: i18n.T("ports.panel"), listen: s.Settings.WebListen})
 		}
 		if s.Settings.SubEnable && s.Settings.SubPort > 0 && s.Settings.SubPort != s.Settings.WebPort {
 			k := key{-1, "tcp", s.Settings.SubPort}
-			groups[k] = append(groups[k], binder{name: "the subscription server", listen: s.Settings.SubListen})
+			groups[k] = append(groups[k], binder{name: i18n.T("ports.sub"), listen: s.Settings.SubListen})
 		}
 	}
 	keys := make([]key, 0, len(groups))
@@ -149,13 +151,12 @@ func checkPorts(s *Snapshot) []Finding {
 				if !overlaps(g[i].listen, g[j].listen) {
 					continue
 				}
-				where := ""
+				subj := i18n.T("ports.subj", k.proto, k.port)
 				if k.node >= 0 {
-					where = fmt.Sprintf(" on node #%d", k.node)
+					subj = i18n.T("ports.subj_node", k.proto, k.port, k.node)
 				}
-				out = append(out, Finding{Severity: Critical, Subject: fmt.Sprintf("%s/%d%s", k.proto, k.port, where),
-					Message: g[i].name + " and " + g[j].name + " use the same port; only one can bind it and Xray (or the panel) fails to start",
-					Fix:     "Move one of them to another port, or bind them to different listen addresses."})
+				out = append(out, newFinding(Critical, subj,
+					i18n.T("ports.conflict", g[i].name, g[j].name), i18n.T("ports.conflict.fix")))
 			}
 		}
 	}
@@ -168,7 +169,7 @@ func checkPorts(s *Snapshot) []Finding {
 func listeningFindings(s *Snapshot) []Finding {
 	socks, err := s.Probe.Listening()
 	if err != nil {
-		return []Finding{{Severity: Info, Subject: "sockets", Message: "cannot list listening sockets: " + err.Error()}}
+		return []Finding{newFinding(Info, i18n.T("subj.sockets"), i18n.T("ports.list_failed", err), i18n.Text{})}
 	}
 	if s.Status != nil && !strings.EqualFold(s.Status.Xray.State, "running") && s.Status.Xray.State != "" {
 		return nil // already reported by the xray check
@@ -182,9 +183,7 @@ func listeningFindings(s *Snapshot) []Finding {
 		for _, proto := range transports(ib) {
 			k := fmt.Sprintf("%s/%d", proto, ib.Port)
 			if !socks[k] {
-				out = append(out, Finding{Severity: Warn, Subject: ib.label(),
-					Message: "nothing listens on " + k + " on this host although the inbound is enabled",
-					Fix:     "Check the Xray log for a bind error; restart Xray from the panel."})
+				out = append(out, newFinding(Warn, ib.label(), i18n.T("ports.not_listening", k), i18n.T("ports.not_listening.fix")))
 			}
 		}
 	}

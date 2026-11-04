@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,11 +18,13 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 // ErrForbidden is returned when the credentials are valid but not allowed to
 // read an endpoint (for example a "monitor"-scope API token).
-var ErrForbidden = errors.New("not permitted for these credentials")
+var ErrForbidden = i18n.Errorf("api.forbidden")
 
 // Credentials select how the client authenticates. Token wins over a password.
 type Credentials struct {
@@ -48,11 +49,11 @@ type Client struct {
 func New(baseURL string, creds Credentials, insecure bool, timeout time.Duration) (*Client, error) {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("panel URL must look like https://host:port/basepath/")
+		return nil, i18n.Errorf("api.bad_url")
 	}
 	if u.User != nil {
 		// Credentials in the URL would end up in output and error messages.
-		return nil, fmt.Errorf("do not put credentials in the panel URL (%s); use XUI_API_TOKEN or XUI_USERNAME/XUI_PASSWORD", u.Redacted())
+		return nil, i18n.Errorf("api.url_userinfo", u.Redacted())
 	}
 	u.RawQuery, u.Fragment = "", ""
 	jar, _ := cookiejar.New(nil)
@@ -79,7 +80,7 @@ func (c *Client) Login(ctx context.Context) error {
 		return nil
 	}
 	if c.creds.Username == "" || c.creds.Password == "" {
-		return errors.New("no credentials: set XUI_API_TOKEN, or XUI_USERNAME and XUI_PASSWORD")
+		return i18n.Errorf("api.no_credentials")
 	}
 	if err := c.refreshCSRF(ctx); err != nil {
 		return err
@@ -91,10 +92,10 @@ func (c *Client) Login(ctx context.Context) error {
 	})
 	var env envelope
 	if err := c.do(ctx, http.MethodPost, "/login", body, &env); err != nil {
-		return fmt.Errorf("login: %w", err)
+		return i18n.Errorf("api.login", err)
 	}
 	if !env.Success {
-		return errors.New("login refused by the panel (wrong username, password or 2FA code, or too many attempts)")
+		return i18n.Errorf("api.login_refused")
 	}
 	c.loggedIn = true
 	// still-ui clears the anonymous session (and its CSRF token) on login; 3x-ui
@@ -114,11 +115,11 @@ func (c *Client) Logout(ctx context.Context) error {
 func (c *Client) refreshCSRF(ctx context.Context) error {
 	var env envelope
 	if err := c.do(ctx, http.MethodGet, "/csrf-token", nil, &env); err != nil {
-		return fmt.Errorf("csrf token: %w", err)
+		return i18n.Errorf("api.csrf", err)
 	}
 	var tok string
 	if err := json.Unmarshal(env.Obj, &tok); err != nil || tok == "" {
-		return errors.New("csrf token: unexpected response (is the URL the panel's address including its base path?)")
+		return i18n.Errorf("api.csrf_unexpected")
 	}
 	c.csrf = tok
 	return nil
@@ -169,13 +170,13 @@ func (c *Client) getObj(ctx context.Context, method, path string, out any) error
 		if len(msg) > 200 {
 			msg = msg[:200]
 		}
-		return fmt.Errorf("%s: panel answered success=false: %s", path, msg)
+		return i18n.Errorf("api.not_success", path, msg)
 	}
 	if len(env.Obj) == 0 || string(env.Obj) == "null" {
 		return nil
 	}
 	if err := json.Unmarshal(env.Obj, out); err != nil {
-		return fmt.Errorf("%s: cannot decode answer: %v", path, err)
+		return i18n.Errorf("api.decode", path, err)
 	}
 	return nil
 }
@@ -213,13 +214,13 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out *
 	}
 	switch {
 	case resp.StatusCode == http.StatusForbidden:
-		return fmt.Errorf("%s: %w", path, ErrForbidden)
+		return i18n.Errorf("api.path_error", path, ErrForbidden)
 	case resp.StatusCode == http.StatusUnauthorized:
-		return fmt.Errorf("%s: HTTP 401 (token or session not accepted)", path)
+		return i18n.Errorf("api.http401", path)
 	case resp.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("%s: HTTP 404 (wrong base path, or not logged in)", path)
+		return i18n.Errorf("api.http404", path)
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return fmt.Errorf("%s: HTTP %d redirect to %q (check the URL and its base path)", path, resp.StatusCode, resp.Header.Get("Location"))
+		return i18n.Errorf("api.redirect", path, resp.StatusCode, resp.Header.Get("Location"))
 	case resp.StatusCode != http.StatusOK:
 		return fmt.Errorf("%s: HTTP %d", path, resp.StatusCode)
 	}
@@ -227,7 +228,7 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out *
 		return nil
 	}
 	if err := json.Unmarshal(data, out); err != nil {
-		return fmt.Errorf("%s: not a JSON API answer (is this a 3x-ui panel?)", path)
+		return i18n.Errorf("api.not_json", path)
 	}
 	return nil
 }
