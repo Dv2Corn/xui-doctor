@@ -36,8 +36,28 @@ func JSON(w io.Writer, h Header, fs []checks.Finding) error {
 	}{h, checks.Worst(fs), fs})
 }
 
-// Text writes findings grouped by severity, worst first.
+// Clean drops characters that a terminal would interpret: C0 controls other
+// than tab, DEL, C1 controls and bidirectional overrides/isolates. Remarks,
+// e-mails, tags and server names come from the panel and may contain them.
+func Clean(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t':
+			return r
+		case r < 0x20, r == 0x7f, r >= 0x80 && r <= 0x9f,
+			r >= 0x202a && r <= 0x202e, r >= 0x2066 && r <= 0x2069:
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// Text writes findings grouped by severity, worst first. Every string is
+// passed through Clean before it reaches the terminal.
 func Text(w io.Writer, h Header, fs []checks.Finding, showOK bool) {
+	h = Header{Tool: Clean(h.Tool), PanelURL: Clean(h.PanelURL), PanelKind: Clean(h.PanelKind),
+		PanelVersion: Clean(h.PanelVersion), UpstreamVersion: Clean(h.UpstreamVersion),
+		XrayVersion: Clean(h.XrayVersion), Auth: Clean(h.Auth), Local: h.Local, DialTargets: h.DialTargets}
 	fmt.Fprintf(w, "%s: %s\n", h.Tool, h.PanelURL)
 	panel := h.PanelKind + " " + h.PanelVersion
 	if h.UpstreamVersion != "" {
@@ -64,13 +84,13 @@ func Text(w io.Writer, h Header, fs []checks.Finding, showOK bool) {
 			cur = f.Severity
 			fmt.Fprintf(w, "\n== %s ==\n", cur)
 		}
-		line := "[" + f.Check + "] "
+		line := "[" + Clean(f.Check) + "] "
 		if f.Subject != "" {
-			line += f.Subject + ": "
+			line += Clean(f.Subject) + ": "
 		}
-		fmt.Fprintln(w, "- "+line+f.Message)
+		fmt.Fprintln(w, "- "+line+Clean(f.Message))
 		if f.Fix != "" {
-			fmt.Fprintln(w, "  fix: "+f.Fix)
+			fmt.Fprintln(w, "  fix: "+Clean(f.Fix))
 		}
 	}
 	var parts []string

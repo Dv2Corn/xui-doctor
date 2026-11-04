@@ -56,3 +56,19 @@ func TestJSONAndExit(t *testing.T) {
 		t.Fatal("exit codes")
 	}
 }
+
+func TestTextStripsControlCharacters(t *testing.T) {
+	evil := []checks.Finding{{Check: "clients", Severity: checks.Warn,
+		Subject: "inbound #1 \"x\x1b]0;pwned\x07\"", Message: "client \u202eevil\u202c and \x9b31m \u009b31m \u2066x\u2069 and\x7f tab\tok", Fix: "fix\x1b[2J"}}
+	var b bytes.Buffer
+	Text(&b, Header{Tool: "t", PanelURL: "https://p/\x1b[31m", PanelKind: "3x-ui"}, evil, false)
+	out := b.String()
+	for _, bad := range []string{"\x1b", "\x07", "\u202e", "\u202c", "\x9b", "\u009b", "\u2066", "\u2069", "\x7f"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("output contains %q:\n%q", bad, out)
+		}
+	}
+	if !strings.Contains(out, "tab\tok") || !strings.Contains(out, "]0;pwned") {
+		t.Errorf("printable text and tabs must stay: %q", out)
+	}
+}

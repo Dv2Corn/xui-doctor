@@ -95,7 +95,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if errors.As(err, &fe) {
 			err = fe.Err
 		}
-		fmt.Fprintln(stderr, "xui-doctor:", err)
+		fmt.Fprintln(stderr, "xui-doctor:", report.Clean(err.Error()))
 		if strings.Contains(err.Error(), "x509:") && !opt.insecure {
 			fmt.Fprintln(stderr, "hint: for a self-signed panel certificate add --insecure")
 		}
@@ -138,7 +138,7 @@ func checkFlags(out io.Writer) (*flag.FlagSet, *flagValues) {
 	fs.BoolVar(&opt.insecure, "insecure", false, "accept a self-signed or mismatched panel certificate")
 	fs.BoolVar(&opt.json, "json", false, "print JSON instead of text")
 	fs.BoolVar(&opt.local, "local", false, "running on the panel host: also read certificate files and listening sockets, and dial REALITY targets")
-	fs.BoolVar(&opt.dial, "dial-targets", false, "dial REALITY targets from this machine (implied by --local)")
+	fs.BoolVar(&opt.dial, "dial-targets", false, "dial REALITY targets from this machine; non-public addresses only with --local (implied by --local)")
 	fs.BoolVar(&opt.offline, "offline", false, "do not ask GitHub for the latest panel release")
 	fs.BoolVar(&opt.verbose, "verbose", false, "also print OK lines")
 	fs.DurationVar(&opt.timeout, "timeout", 20*time.Second, "timeout per panel request")
