@@ -9,7 +9,7 @@
 # Env: SERVERS, XCLIENTS, XFPS (space-separated), TRIALS (default 3),
 # DEST (REALITY target, default www.nvidia.com), URL (probe URL),
 # MINVER (sets the server's "minClientVer").
-# Note: with DEST=www.microsoft.com, Xray <= 26.9.x servers failed for every
+# Note: with DEST=www.microsoft.com, Xray 26.6.27 and 26.7.28 servers failed for every
 # client in our runs, so the default target is www.nvidia.com.
 set -u
 cd "$(dirname "$0")"
