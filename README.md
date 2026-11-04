@@ -1,3 +1,5 @@
+**[English](README.md)** | [Русский](README.ru.md) | [فارسی](README.fa.md) | [简体中文](README.zh.md)
+
 # xui-doctor
 
 A small, read-only health and configuration checker for
@@ -69,7 +71,7 @@ CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o xui-doctor ./cmd/xui-doctor
 
 ```
 xui-doctor check --url https://HOST:PORT/BASEPATH/ [--insecure] [--json] [--local]
-                 [--dial-targets] [--offline] [--verbose] [--timeout 20s]
+                 [--dial-targets] [--offline] [--verbose] [--timeout 20s] [--lang en|ru]
 ```
 
 Credentials are read from the environment only, so they do not end up in the
@@ -91,6 +93,11 @@ shell history or the process list:
 | `--dial-targets` | dial REALITY targets from wherever the tool runs (reported as such: it may not be the panel host); targets that resolve to loopback, private, link-local, CGNAT, documentation, NAT64/6to4 or other IANA special-purpose addresses are skipped |
 | `--offline` | skip the GitHub release lookup |
 | `--verbose` | also print OK lines |
+| `--lang` | output language, `en` or `ru`; without it a Russian locale (`LC_ALL`, `LC_MESSAGES` or `LANG` starting with `ru`, checked in that order) selects Russian, anything else English |
+
+Text output is in English or Russian. JSON output always keeps English text
+and adds a stable message `id` to every finding, so scripts do not depend on
+the wording or the locale.
 
 Exit codes: `0` nothing worse than INFO, `1` warnings, `2` critical findings,
 `3` the check could not run (wrong URL, login refused, ...).
@@ -197,6 +204,10 @@ go vet ./...
 go test ./...
 ```
 
+Messages live in `internal/i18n/catalog.go`, in English and Russian. A test
+fails when a message has no Russian text, when the two texts use different
+format verbs, or when code uses an ID the catalog lacks.
+
 `testdata/` holds answers recorded from throwaway 3x-ui 3.11.0 and still-ui
 1.3.0 panels, with UUIDs, keys, passwords and GUIDs replaced by fake values.
 `internal/doctor` replays them through a fake panel that enforces the same
@@ -207,30 +218,3 @@ read-only set above.
 
 MIT. Not affiliated with the 3x-ui or Xray-core projects.
 
----
-
-## По-русски
-
-**xui-doctor** - проверка панелей 3x-ui и still-ui только на чтение. Программа
-входит в API панели (токен API или логин/пароль из переменных окружения),
-читает статус, входы (inbounds), хосты и настройки и печатает найденные
-проблемы по уровням CRITICAL / WARN / INFO / OK, к каждой - как исправить.
-Ничего в панели не меняет.
-
-```
-XUI_API_TOKEN=... xui-doctor check --url https://адрес:порт/путь/
-```
-
-Главная проверка: Xray-core с версии 26.9.8 не пускает по REALITY клиентов,
-у которых в ClientHello нет ключа X25519MLKEM768. Это ссылки с `fp=ios`
-(а также edge, qq) и все клиенты на sing-box (Hiddify, Karing, NekoBox) с
-любым отпечатком; mihomo/Clash подключается, только если в его настройках
-`support-x25519mlkem768: true` (подписка Clash самой панели это ставит).
-Что делать: сменить отпечаток в ссылках на chrome, firefox или safari, либо
-закрепить в панели Xray 26.6.27. Таблица проверок - выше.
-
-Ключи: `--local` - запуск на сервере панели (дополнительно читает файлы
-сертификатов, слушающие порты и проверяет цель REALITY), `--json` - вывод для
-программ, `--offline` - без запроса к GitHub. Код выхода: 0 - всё в порядке,
-1 - есть предупреждения, 2 - есть критичные проблемы, 3 - проверка не
-выполнена.
