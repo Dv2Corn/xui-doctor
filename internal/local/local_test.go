@@ -50,8 +50,12 @@ func TestDialTLS(t *testing.T) {
 	srv.TLS = &tls.Config{MinVersion: tls.VersionTLS13}
 	srv.StartTLS()
 	defer srv.Close()
-	p := &Probe{Timeout: 3 * time.Second}
-	res, err := p.DialTLS(strings.TrimPrefix(srv.URL, "https://"), "example.com")
+	addr := strings.TrimPrefix(srv.URL, "https://")
+	if _, err := (&Probe{Timeout: 3 * time.Second}).DialTLS(addr, "example.com"); err == nil || !strings.Contains(err.Error(), "non-public") {
+		t.Fatalf("loopback must be refused without AllowNonPublic: %v", err)
+	}
+	p := &Probe{Timeout: 3 * time.Second, AllowNonPublic: true}
+	res, err := p.DialTLS(addr, "example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +65,7 @@ func TestDialTLS(t *testing.T) {
 	if res.VerifyError == nil || !res.UnknownRoot {
 		t.Fatalf("the httptest certificate must fail as an unknown root: %v", res.VerifyError)
 	}
-	if res, err = p.DialTLS(strings.TrimPrefix(srv.URL, "https://"), "other.test"); err != nil || res.VerifyError == nil || res.UnknownRoot {
+	if res, err = p.DialTLS(addr, "other.test"); err != nil || res.VerifyError == nil || res.UnknownRoot {
 		t.Fatalf("a name mismatch must not count as an unknown root: %v %+v", err, res)
 	}
 }

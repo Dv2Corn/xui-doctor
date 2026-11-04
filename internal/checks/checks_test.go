@@ -12,6 +12,7 @@ import (
 	"errors"
 	"math/big"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -490,5 +491,25 @@ func TestRealityDialCap(t *testing.T) {
 	fs := checkReality(s)
 	if dials != MaxTargetProbes || count(fs, Info, "5 server names not dialed") != 1 {
 		t.Fatalf("dials=%d %+v", dials, fs)
+	}
+}
+
+func TestPublicAddr(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"93.184.216.34": true, "1.1.1.1": true, "2606:4700::1111": true, "2a00:1450:4001::1": true,
+		"0.1.2.3": false, "10.1.2.3": false, "100.64.0.1": false, "127.0.0.1": false, "169.254.169.254": false,
+		"172.16.5.5": false, "192.0.0.8": false, "192.0.2.1": false, "192.168.1.1": false, "198.18.0.1": false,
+		"198.51.100.7": false, "203.0.113.10": false, "224.0.0.1": false, "240.0.0.1": false,
+		"255.255.255.255": false, "::": false, "::1": false, "fc00::1": false, "fd12::1": false,
+		"fe80::1": false, "ff02::1": false, "64:ff9b::a00:1": false, "64:ff9b::5db8:d822": false,
+		"64:ff9b:1::1": false, "2001::1": false, "2001:db8::1": false, "2002:a00:1::": false,
+		"::ffff:10.0.0.1": false, "::ffff:93.184.216.34": true,
+	} {
+		if got := PublicAddr(netip.MustParseAddr(addr)); got != want {
+			t.Errorf("PublicAddr(%s) = %v, want %v", addr, got, want)
+		}
+	}
+	if PublicAddr(netip.Addr{}) {
+		t.Error("the zero Addr is not public")
 	}
 }

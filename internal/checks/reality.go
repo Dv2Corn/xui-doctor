@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 )
 
@@ -184,11 +185,43 @@ func pickTargetIP(s *Snapshot, host string) (net.IP, string) {
 	return ips[0], ""
 }
 
-var cgnat = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}
+// specialPrefixes are IANA special-purpose blocks (and documentation, test,
+// CGNAT, multicast and translation ranges) that a target taken from panel
+// data must not point at. NAT64 (64:ff9b::/96, 64:ff9b:1::/48) and 6to4
+// (2002::/16) are refused as a whole, which also covers any private IPv4
+// embedded in them.
+var specialPrefixes = func() []netip.Prefix {
+	var out []netip.Prefix
+	for _, p := range []string{
+		"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+		"192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15",
+		"198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "255.255.255.255/32",
+		"::/128", "::1/128", "100::/64", "64:ff9b::/96", "64:ff9b:1::/48", "2001::/32", "2001:db8::/32",
+		"2002::/16", "fc00::/7", "fe80::/10", "ff00::/8",
+	} {
+		out = append(out, netip.MustParsePrefix(p))
+	}
+	return out
+}()
+
+// PublicAddr reports whether a is an ordinary public unicast address.
+// IPv4-mapped IPv6 addresses are judged as the IPv4 address they carry.
+func PublicAddr(a netip.Addr) bool {
+	a = a.Unmap()
+	if !a.IsValid() || a.Zone() != "" {
+		return false
+	}
+	for _, p := range specialPrefixes {
+		if p.Contains(a) {
+			return false
+		}
+	}
+	return true
+}
 
 func publicIP(ip net.IP) bool {
-	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsMulticast() || cgnat.Contains(ip))
+	a, ok := netip.AddrFromSlice(ip)
+	return ok && PublicAddr(a)
 }
 
 func isAllDigits(s string) bool {

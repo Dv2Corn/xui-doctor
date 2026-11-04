@@ -12,10 +12,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Dv2Corn/xui-doctor/internal/checks"
@@ -26,6 +28,22 @@ type Probe struct {
 	Timeout time.Duration
 	// ProcNet is the directory holding tcp, tcp6, udp, udp6 (default /proc/net).
 	ProcNet string
+	// AllowNonPublic lets DialTLS connect to loopback/private/special
+	// addresses (--local). Otherwise the dialer refuses them on the address it
+	// actually connects to.
+	AllowNonPublic bool
+}
+
+// guard is a net.Dialer Control hook that re-checks the connected address.
+func (p *Probe) guard(_, address string, _ syscall.RawConn) error {
+	if p.AllowNonPublic {
+		return nil
+	}
+	ap, err := netip.ParseAddrPort(address)
+	if err != nil || !checks.PublicAddr(ap.Addr()) {
+		return fmt.Errorf("refusing to dial non-public address %s without --local", address)
+	}
+	return nil
 }
 
 // ReadCertFile parses the first certificate of a PEM file (at most 1 MiB is read).
@@ -125,7 +143,7 @@ func (p *Probe) DialTLS(addr, sni string) (*checks.TLSResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	d := tls.Dialer{
-		NetDialer: &net.Dialer{Timeout: timeout},
+		NetDialer: &net.Dialer{Timeout: timeout, Control: p.guard},
 		Config: &tls.Config{
 			ServerName:         sni,
 			NextProtos:         []string{"h2", "http/1.1"},

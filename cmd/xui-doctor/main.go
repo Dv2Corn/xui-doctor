@@ -88,7 +88,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Offline:  opt.offline,
 		Local:    opt.local,
 		Dial:     opt.dial,
-		Probe:    &local.Probe{},
+		Probe:    &local.Probe{AllowNonPublic: opt.local},
 	})
 	if err != nil {
 		var fe doctor.ErrFatal
