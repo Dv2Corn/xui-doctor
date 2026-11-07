@@ -6,7 +6,9 @@ package checks
 import (
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,7 +98,7 @@ type Snapshot struct {
 	Fail2ban *api.Fail2banStatus
 
 	// Errors records why a section could not be read (key: "inbounds", "hosts", ...).
-	Errors map[string]string
+	Errors map[string]error
 
 	// PanelCert is the certificate the panel presented to this tool (https only).
 	PanelCert *x509.Certificate
@@ -230,6 +232,7 @@ type RealitySettings struct {
 	Show         bool            `json:"show"`
 	Target       json.RawMessage `json:"target"`
 	Dest         json.RawMessage `json:"dest"`
+	Type         string          `json:"type"`
 	ServerNames  []string        `json:"serverNames"`
 	PrivateKey   string          `json:"privateKey"`
 	MinClientVer string          `json:"minClientVer"`
@@ -245,10 +248,7 @@ type RealitySettings struct {
 // TargetString returns target (or the legacy dest) as a string; a bare
 // number means a local port.
 func (r *RealitySettings) TargetString() string {
-	raw := r.Target
-	if len(raw) == 0 || string(raw) == "null" || string(raw) == `""` {
-		raw = r.Dest
-	}
+	raw := r.rawTarget()
 	if len(raw) == 0 || string(raw) == "null" {
 		return ""
 	}
@@ -261,6 +261,53 @@ func (r *RealitySettings) TargetString() string {
 		return n.String()
 	}
 	return ""
+}
+
+func (r *RealitySettings) rawTarget() json.RawMessage {
+	if raw := r.Target; len(raw) != 0 && string(raw) != "null" && string(raw) != `""` {
+		return raw
+	}
+	return r.Dest
+}
+
+// TargetValid mirrors Xray-core's REALITY loader: unless "type" is set, the
+// target must be a port number (a JSON number up to 65535 or a string of
+// digits), a unix socket path ("/..." or "@...") or host:port.
+func (r *RealitySettings) TargetValid() bool {
+	if r.Type != "" {
+		return true
+	}
+	if raw := r.rawTarget(); len(raw) > 0 && raw[0] != '"' {
+		var port uint16
+		return json.Unmarshal(raw, &port) == nil
+	}
+	s := r.TargetString()
+	if s == "" {
+		return false
+	}
+	if s[0] == '/' || s[0] == '@' {
+		return true
+	}
+	if _, err := strconv.Atoi(s); err == nil {
+		s = "localhost:" + s
+	}
+	_, _, err := net.SplitHostPort(s)
+	return err == nil
+}
+
+// ValidClientVer mirrors Xray-core's REALITY loader for "minClientVer" and
+// "maxClientVer": up to three dot-separated decimal numbers, each below 256.
+func ValidClientVer(v string) bool {
+	parts := strings.Split(v, ".")
+	if len(parts) > 3 {
+		return false
+	}
+	for _, p := range parts {
+		if _, err := strconv.ParseUint(p, 10, 8); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // TLSSettings is the part of tlsSettings the checks use.
@@ -327,12 +374,9 @@ func (ib *Inbound) label() i18n.Text {
 // local reports whether the inbound runs on this panel's own Xray (not on a node).
 func (ib *Inbound) local() bool { return ib.NodeID == nil }
 
-// NotPermitted is the Errors value for a section the credentials may not read.
-const NotPermitted = "these credentials may not read it, e.g. a monitor-scope token"
-
 func (s *Snapshot) skipped(section string) (Finding, bool) {
-	msg, ok := s.Errors[section]
-	if !ok {
+	err, ok := s.Errors[section]
+	if !ok || err == nil {
 		return Finding{}, false
 	}
 	var name any = section
@@ -348,9 +392,15 @@ func (s *Snapshot) skipped(section string) (Finding, bool) {
 	case "fail2ban":
 		name = i18n.T("section.fail2ban")
 	}
-	var why any = msg
-	if msg == NotPermitted {
+	var why any = err // a catalog error renders in the report's language
+	var ce *i18n.Error
+	switch {
+	case errors.Is(err, api.ErrForbidden):
 		why = i18n.T("section.not_permitted")
+	case !errors.As(err, &ce):
+		if msg := err.Error(); len(msg) > 200 {
+			why = msg[:200]
+		}
 	}
 	return newFinding(Info, i18n.Text{}, i18n.T("check.skipped", name, why), i18n.Text{}), true
 }

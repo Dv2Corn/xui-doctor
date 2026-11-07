@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Dv2Corn/xui-doctor/internal/api"
+	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
 var now = time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC)
@@ -42,7 +43,7 @@ func realityInbound(id, port int, fp string, mut func(map[string]any)) Inbound {
 func snap(xray string, ibs ...Inbound) *Snapshot {
 	st := &api.Status{PanelVersion: "3.11.0"}
 	st.Xray.State, st.Xray.Version = "running", xray
-	return &Snapshot{Now: now, Kind: Kind3XUI, Status: st, Inbounds: ibs, Errors: map[string]string{}, Offline: true}
+	return &Snapshot{Now: now, Kind: Kind3XUI, Status: st, Inbounds: ibs, Errors: map[string]error{}, Offline: true}
 }
 
 func count(fs []Finding, sev Severity, substr string) int {
@@ -140,7 +141,7 @@ func TestXrayNotRunningAndUnreadable(t *testing.T) {
 	s := snap("26.10.31")
 	s.Status.Xray.State, s.Status.Xray.ErrorMsg = "error", "failed to listen\nmore"
 	s.Inbounds = nil
-	s.Errors["inbounds"] = "forbidden"
+	s.Errors["inbounds"] = errors.New("forbidden")
 	fs := checkXrayCompat(s)
 	if count(fs, Critical, "not running (state: error): failed to listen") != 1 {
 		t.Fatalf("%+v", fs)
@@ -174,6 +175,91 @@ func TestRealityValidation(t *testing.T) {
 	}
 	if fs := checkReality(snap("26.10.31", realityInbound(3, 443, "chrome", nil))); len(fs) != 0 {
 		t.Fatalf("clean inbound produced %+v", fs)
+	}
+
+	// Xray's loader (infra/conf/transport_security.go) accepts only these.
+	for target, ok := range map[any]bool{
+		"example.com:443": true, "[::1]:443": true, "8443": true, 8443.0: true, "/dev/shm/r.sock": true, "@abstract": true,
+		"www.nvidia.com": false, "example.com:443:1": false, 70000.0: false, -1.0: false,
+	} {
+		fs := checkReality(snap("26.10.31", realityInbound(4, 443, "chrome", func(m map[string]any) { m["target"] = target })))
+		if got := count(fs, Critical, "is not a port"); got != map[bool]int{true: 0, false: 1}[ok] {
+			t.Errorf("target %v: %+v", target, fs)
+		}
+	}
+	typed := realityInbound(5, 443, "chrome", func(m map[string]any) { m["target"] = "www.nvidia.com"; m["type"] = "tcp" })
+	if fs := checkReality(snap("26.10.31", typed)); len(fs) != 0 {
+		t.Errorf("an explicit type takes the target as is: %+v", fs)
+	}
+	for v, ok := range map[string]bool{
+		"": true, "0": true, "26.3": true, "26.3.27": true, "0.0.0": true, "255.255.255": true,
+		"v26.3.27": false, "26.3.27.1": false, "26.256.0": false, "26..1": false, " 26.3.27": false, "-1": false,
+	} {
+		fs := checkReality(snap("26.10.31", realityInbound(6, 443, "chrome", func(m map[string]any) { m["minClientVer"] = v })))
+		if got := count(fs, Critical, `"minClientVer"`); got != map[bool]int{true: 0, false: 1}[ok] {
+			t.Errorf("minClientVer %q: %+v", v, fs)
+		}
+	}
+}
+
+func TestRealityBadTargetNotDialed(t *testing.T) {
+	s := snap("26.10.31", realityInbound(1, 443, "chrome", func(m map[string]any) { m["target"] = "www.nvidia.com" }))
+	s.Dial = true
+	s.Probe = fakeProbe{dns: map[string][]net.IP{"www.nvidia.com": {net.ParseIP("93.184.216.34")}}, dial: func(addr, sni string) (*TLSResult, error) {
+		t.Errorf("dialed %s for a target Xray refuses", addr)
+		return nil, errors.New("unexpected")
+	}}
+	if fs := checkReality(s); count(fs, Critical, "is not a port") != 1 {
+		t.Fatalf("%+v", fs)
+	}
+}
+
+func TestRealityNodeTargetNotDialed(t *testing.T) {
+	node := realityInbound(1, 443, "chrome", func(m map[string]any) { m["target"] = "93.184.216.34:443" })
+	n := 7
+	node.NodeID = &n
+	s := snap("26.10.31", node)
+	s.Dial, s.Local = true, true
+	s.Probe = fakeProbe{dial: func(addr, sni string) (*TLSResult, error) {
+		t.Errorf("dialed %s for an inbound on a node", addr)
+		return nil, errors.New("unexpected")
+	}}
+	if fs := checkReality(s); len(fs) != 0 {
+		t.Fatalf("%+v", fs)
+	}
+}
+
+func TestXrayInvalidMinClientVerIsNotSet(t *testing.T) {
+	ib := realityInbound(1, 443, "chrome", func(m map[string]any) { m["minClientVer"] = "v26.3.27" })
+	if fs := checkXrayCompat(snap("26.7.28", ib)); count(fs, Warn, "defaults REALITY minClientVer") != 1 {
+		t.Fatalf("%+v", fs)
+	}
+}
+
+func TestXrayHostsUnreadable(t *testing.T) {
+	ib := realityInbound(1, 443, "chrome", nil)
+	s := snap("26.10.31", ib)
+	s.Errors["hosts"] = i18n.Errorf("api.http401", "/panel/api/hosts/list")
+	fs := checkXrayCompat(s)
+	var skip *Finding
+	for i := range fs {
+		if fs[i].ID == "check.skipped" {
+			skip = &fs[i]
+		}
+	}
+	if skip == nil || skip.Severity != Info || !strings.Contains(skip.Message, "could not read hosts") {
+		t.Fatalf("hosts read failure not reported: %+v", fs)
+	}
+	if _, msg, _ := skip.In(i18n.RU); !strings.Contains(msg, "хосты") || !strings.Contains(msg, "токен или сессия не приняты") {
+		t.Errorf("skipped reason not in Russian: %q", msg)
+	}
+	s.Errors["hosts"] = i18n.Errorf("api.http404", "/panel/api/hosts/list")
+	if fs := checkXrayCompat(s); count(fs, Info, "could not read") != 0 {
+		t.Errorf("404 (2.x panel without hosts) must stay quiet: %+v", fs)
+	}
+	s.Errors["hosts"] = i18n.Errorf("api.path_error", "/panel/api/hosts/list", api.ErrForbidden)
+	if fs := checkXrayCompat(s); count(fs, Info, "monitor-scope token") != 1 {
+		t.Errorf("forbidden: %+v", fs)
 	}
 }
 

@@ -15,10 +15,12 @@
 
 ```
 $ XUI_API_TOKEN=... xui-doctor check --url http://127.0.0.1:12053/doctor-test/
-xui-doctor v0.1.0: http://127.0.0.1:12053/doctor-test
+xui-doctor v0.1.0: http://127.0.0.1:12053/***/
 panel: 3x-ui 3.11.0, Xray 26.10.21, auth: API token
 
 == CRITICAL ==
+- [xray] host "edge-host" -> inbound #1 "reality-ios" (vless, port 24443): ... share links here
+  use fp=edge, which has none, so clients using them cannot connect
 - [xray] inbound #1 "reality-ios" (vless, port 24443): Xray 26.10.21 (>= 26.9.8) refuses REALITY
   ClientHellos without an X25519MLKEM768 key share; share links here use fp=ios, which has none,
   so clients using them cannot connect
@@ -174,7 +176,7 @@ REALITY: каждое имя разрешается один раз, и подк
 | ID | На что смотрит |
 |---|---|
 | `xray` | состояние и версию Xray с учётом изменений REALITY (см. ниже); отпечатки uTLS входов REALITY и хостов подписки; переключатель "Mihomo X25519" у хостов |
-| `reality` | target, serverNames, privateKey, shortIds - ровно так, как их проверяет Xray-core; пустой открытый ключ для ссылок; `show`; с `--local`/`--dial-targets`: TLS 1.3, h2 и действительный сертификат у цели для каждого serverName |
+| `reality` | target, serverNames, privateKey, minClientVer, shortIds - ровно так, как их проверяет Xray-core; пустой открытый ключ для ссылок; `show`; с `--local`/`--dial-targets` для входов на Xray самой панели (не на узлах): TLS 1.3, h2 и действительный сертификат у цели для каждого serverName |
 | `tls` | срок встроенных сертификатов входов TLS и сертификата, который показала панель; с `--local` ещё файлы сертификатов входов, панели и сервера подписки (истёк: CRITICAL, меньше 7 дней: WARN) |
 | `ports` | включённые входы (и панель / сервер подписки), которые займут один порт и транспорт на одном адресе, по тем же правилам TCP/UDP, что и сама панель; с `--local` - включённые входы, которые никто не слушает |
 | `clients` | клиенты с истёкшим сроком или исчерпанным трафиком, но всё ещё включённые; два клиента с одним UUID/паролем внутри входа; лимиты IP при неработающем fail2ban |

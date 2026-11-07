@@ -33,12 +33,18 @@ func TestText(t *testing.T) {
 	if !strings.Contains(out, "summary: 1 critical, 1 warn, 1 info, 1 ok") {
 		t.Fatalf("summary:\n%s", out)
 	}
+	if !strings.HasPrefix(out, "xui-doctor test: https://p/***/\n") {
+		t.Fatalf("the base path must be hidden:\n%s", out)
+	}
 }
 
 func TestJSONAndExit(t *testing.T) {
 	var b bytes.Buffer
-	if err := JSON(&b, Header{Tool: "t"}, sample); err != nil {
+	if err := JSON(&b, Header{Tool: "t", PanelURL: "https://panel.example:2053/s3cretPath"}, sample); err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "s3cretPath") || !strings.Contains(b.String(), `"panelUrl": "https://panel.example:2053/***/"`) {
+		t.Fatalf("the base path must be hidden:\n%s", b.String())
 	}
 	var doc struct {
 		Worst    string `json:"worst"`

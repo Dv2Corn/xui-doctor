@@ -15,10 +15,12 @@
 
 ```
 $ XUI_API_TOKEN=... xui-doctor check --url http://127.0.0.1:12053/doctor-test/
-xui-doctor v0.1.0: http://127.0.0.1:12053/doctor-test
+xui-doctor v0.1.0: http://127.0.0.1:12053/***/
 panel: 3x-ui 3.11.0, Xray 26.10.21, auth: API token
 
 == CRITICAL ==
+- [xray] host "edge-host" -> inbound #1 "reality-ios" (vless, port 24443): ... share links here
+  use fp=edge, which has none, so clients using them cannot connect
 - [xray] inbound #1 "reality-ios" (vless, port 24443): Xray 26.10.21 (>= 26.9.8) refuses REALITY
   ClientHellos without an X25519MLKEM768 key share; share links here use fp=ios, which has none,
   so clients using them cannot connect
@@ -137,7 +139,7 @@ locale خروجی را انگلیسی می‌کند.
 | ID | چه چیزی را می‌بیند |
 |---|---|
 | `xray` | وضعیت و نسخهٔ Xray در برابر تغییرات REALITY (پایین‌تر)؛ اثر انگشت uTLS اینباندهای REALITY و هاست‌های اشتراک؛ کلید "Mihomo X25519" هاست‌ها |
-| `reality` | target، serverNames، privateKey و shortIds دقیقاً همان‌طور که Xray-core بررسی می‌کند؛ کلید عمومی خالی برای لینک‌ها؛ `show`؛ با `--local`/`--dial-targets`: TLS 1.3، h2 و گواهی معتبر برای هر serverName در مقصد |
+| `reality` | target، serverNames، privateKey، minClientVer و shortIds دقیقاً همان‌طور که Xray-core بررسی می‌کند؛ کلید عمومی خالی برای لینک‌ها؛ `show`؛ با `--local`/`--dial-targets`: TLS 1.3، h2 و گواهی معتبر برای هر serverName در مقصد |
 | `tls` | انقضای گواهی‌های درون‌خطی اینباندهای TLS و گواهی‌ای که پنل ارائه کرد؛ با `--local` فایل‌های گواهی اینباندها، پنل و سرور اشتراک هم (منقضی: CRITICAL، کمتر از 7 روز: WARN) |
 | `ports` | اینباندهای فعال (و پنل / سرور اشتراک) که یک پورت و یک ترابری را روی یک نشانی می‌گیرند، با همان قواعد TCP/UDP خود پنل؛ با `--local` اینباندهای فعالی که کسی رویشان گوش نمی‌دهد |
 | `clients` | کلاینت‌هایی که تاریخشان گذشته یا حجمشان تمام شده ولی هنوز فعال‌اند؛ دو کلاینت با یک UUID/رمز در یک اینباند؛ محدودیت IP وقتی fail2ban کار نمی‌کند |

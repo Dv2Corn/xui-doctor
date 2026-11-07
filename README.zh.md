@@ -13,10 +13,12 @@
 
 ```
 $ XUI_API_TOKEN=... xui-doctor check --url http://127.0.0.1:12053/doctor-test/
-xui-doctor v0.1.0: http://127.0.0.1:12053/doctor-test
+xui-doctor v0.1.0: http://127.0.0.1:12053/***/
 panel: 3x-ui 3.11.0, Xray 26.10.21, auth: API token
 
 == CRITICAL ==
+- [xray] host "edge-host" -> inbound #1 "reality-ios" (vless, port 24443): ... share links here
+  use fp=edge, which has none, so clients using them cannot connect
 - [xray] inbound #1 "reality-ios" (vless, port 24443): Xray 26.10.21 (>= 26.9.8) refuses REALITY
   ClientHellos without an X25519MLKEM768 key share; share links here use fp=ios, which has none,
   so clients using them cannot connect
@@ -129,7 +131,7 @@ xui-doctor check --url https://HOST:PORT/BASEPATH/ [--insecure] [--json] [--loca
 | ID | 检查内容 |
 |---|---|
 | `xray` | Xray 的状态和版本与下文 REALITY 变化的对照；REALITY 入站和订阅主机的 uTLS 指纹；主机的 "Mihomo X25519" 开关 |
-| `reality` | target、serverNames、privateKey、shortIds，完全按照 Xray-core 的校验方式；链接用的公钥为空；`show`；使用 `--local`/`--dial-targets` 时：目标对每个 serverName 是否支持 TLS 1.3、h2 并提供有效证书 |
+| `reality` | target、serverNames、privateKey、minClientVer、shortIds，完全按照 Xray-core 的校验方式；链接用的公钥为空；`show`；使用 `--local`/`--dial-targets` 时：目标对每个 serverName 是否支持 TLS 1.3、h2 并提供有效证书 |
 | `tls` | TLS 入站内联证书以及面板所出示证书的有效期；使用 `--local` 时还检查入站、面板和订阅服务器的证书文件（已过期：CRITICAL，少于 7 天：WARN） |
 | `ports` | 已启用的入站（以及面板 / 订阅服务器）是否会在同一地址上占用同一端口和传输协议，规则与面板自身的 TCP/UDP 规则一致；使用 `--local` 时还检查已启用但无人监听的入站 |
 | `clients` | 已过期或流量用尽但仍处于启用状态的客户端；同一入站内共用一个 UUID/密码的两个客户端；fail2ban 不可用时设置的 IP 限制 |

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Dv2Corn/xui-doctor/internal/api"
 	"github.com/Dv2Corn/xui-doctor/internal/checks"
 	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
@@ -27,8 +28,10 @@ type Header struct {
 	Lang i18n.Lang `json:"-"`
 }
 
-// JSON writes {"header":..., "worst":..., "findings":[...]}.
+// JSON writes {"header":..., "worst":..., "findings":[...]}. The panel URL
+// is written without its base path.
 func JSON(w io.Writer, h Header, fs []checks.Finding) error {
+	h.PanelURL = api.RedactURL(h.PanelURL)
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
@@ -57,13 +60,13 @@ func Clean(s string) string {
 
 // Text writes findings grouped by severity, worst first, in h.Lang (English
 // when empty). Every string is passed through Clean before it reaches the
-// terminal.
+// terminal. The panel URL is shown without its base path.
 func Text(w io.Writer, h Header, fs []checks.Finding, showOK bool) {
 	l := h.Lang
 	if l == "" {
 		l = i18n.EN
 	}
-	h = Header{Tool: Clean(h.Tool), PanelURL: Clean(h.PanelURL), PanelKind: Clean(h.PanelKind),
+	h = Header{Tool: Clean(h.Tool), PanelURL: Clean(api.RedactURL(h.PanelURL)), PanelKind: Clean(h.PanelKind),
 		PanelVersion: Clean(h.PanelVersion), UpstreamVersion: Clean(h.UpstreamVersion),
 		XrayVersion: Clean(h.XrayVersion), Auth: Clean(h.Auth), Local: h.Local, DialTargets: h.DialTargets}
 	fmt.Fprintf(w, "%s: %s\n", h.Tool, h.PanelURL)
