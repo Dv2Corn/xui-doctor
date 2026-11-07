@@ -3,7 +3,6 @@ package doctor
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/Dv2Corn/xui-doctor/internal/api"
@@ -46,7 +45,7 @@ func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 	s := &checks.Snapshot{
 		Now:      time.Now(),
 		PanelURL: c.Base(),
-		Errors:   map[string]string{},
+		Errors:   map[string]error{},
 		Offline:  o.Offline,
 		Local:    o.Local,
 		Dial:     o.Dial || o.Local,
@@ -71,22 +70,22 @@ func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 	}
 
 	if in, err := c.Inbounds(ctx); err != nil {
-		s.Errors["inbounds"] = short(err)
+		s.Errors["inbounds"] = err
 	} else {
 		s.Inbounds = checks.DecodeInbounds(in)
 	}
 	if h, err := c.Hosts(ctx); err != nil {
-		s.Errors["hosts"] = short(err)
+		s.Errors["hosts"] = err
 	} else {
 		s.Hosts = h
 	}
 	if set, err := c.Settings(ctx); err != nil {
-		s.Errors["settings"] = short(err)
+		s.Errors["settings"] = err
 	} else {
 		s.Settings = set
 	}
 	if f, err := c.Fail2ban(ctx); err != nil {
-		s.Errors["fail2ban"] = short(err)
+		s.Errors["fail2ban"] = err
 	} else {
 		s.Fail2ban = f
 	}
@@ -103,9 +102,6 @@ func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 }
 
 func short(err error) string {
-	if errors.Is(err, api.ErrForbidden) {
-		return checks.NotPermitted
-	}
 	msg := err.Error()
 	if len(msg) > 200 {
 		msg = msg[:200]

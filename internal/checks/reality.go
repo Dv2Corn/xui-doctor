@@ -41,8 +41,12 @@ func checkReality(s *Snapshot) []Finding {
 			out = append(out, newFinding(sev, ib.label(), i18n.T("reality.refused", msg), fix))
 		}
 		target := r.TargetString()
-		if target == "" {
+		targetOK := target != "" && r.TargetValid()
+		switch {
+		case target == "":
 			bad(i18n.T("reality.empty_target"), i18n.T("reality.empty_target.fix"))
+		case !targetOK:
+			bad(i18n.T("reality.bad_target", target), i18n.T("reality.empty_target.fix"))
 		}
 		if len(r.ServerNames) == 0 {
 			bad(i18n.T("reality.empty_names"), i18n.T("reality.empty_names.fix"))
@@ -54,6 +58,9 @@ func checkReality(s *Snapshot) []Finding {
 			if k, err := base64.RawURLEncoding.DecodeString(r.PrivateKey); err != nil || len(k) != 32 {
 				bad(i18n.T("reality.bad_key"), i18n.T("reality.bad_key.fix"))
 			}
+		}
+		if r.MinClientVer != "" && !ValidClientVer(r.MinClientVer) {
+			bad(i18n.T("reality.bad_client_ver", r.MinClientVer), i18n.T("reality.bad_client_ver.fix"))
 		}
 		if len(r.ShortIDs) == 0 {
 			bad(i18n.T("reality.empty_sids"), i18n.T("reality.empty_sids.fix"))
@@ -73,7 +80,7 @@ func checkReality(s *Snapshot) []Finding {
 		if r.Show {
 			out = append(out, newFinding(Info, ib.label(), i18n.T("reality.show"), i18n.T("reality.show.fix")))
 		}
-		if ib.Enable && (s.Dial || s.Local) && s.Probe != nil && target != "" && len(r.ServerNames) > 0 {
+		if ib.Enable && ib.local() && (s.Dial || s.Local) && s.Probe != nil && targetOK && len(r.ServerNames) > 0 {
 			out = append(out, dialTarget(s, ib, target, r.ServerNames)...)
 		}
 	}

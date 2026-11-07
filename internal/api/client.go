@@ -53,7 +53,7 @@ func New(baseURL string, creds Credentials, insecure bool, timeout time.Duration
 	}
 	if u.User != nil {
 		// Credentials in the URL would end up in output and error messages.
-		return nil, i18n.Errorf("api.url_userinfo", u.Redacted())
+		return nil, i18n.Errorf("api.url_userinfo", RedactURL(u.String()))
 	}
 	u.RawQuery, u.Fragment = "", ""
 	jar, _ := cookiejar.New(nil)
@@ -67,6 +67,26 @@ func New(baseURL string, creds Credentials, insecure bool, timeout time.Duration
 }
 
 func noRedirect(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+// RedactURL drops credentials, query and the path from a URL for output:
+// the panel's base path is a secret, so a non-root path becomes "/***/".
+func RedactURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "***"
+	}
+	out := ""
+	if u.Host != "" {
+		out = u.Scheme + "://" + u.Host
+	}
+	if strings.Trim(u.Path, "/") == "" {
+		return out + "/"
+	}
+	return out + "/***/"
+}
 
 // Base returns the normalized panel URL.
 func (c *Client) Base() string { return c.base }
@@ -202,6 +222,9 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out *
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if ue, ok := err.(*url.Error); ok {
+			ue.URL = path // the full URL holds the secret base path
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -220,7 +243,7 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out *
 	case resp.StatusCode == http.StatusNotFound:
 		return i18n.Errorf("api.http404", path)
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return i18n.Errorf("api.redirect", path, resp.StatusCode, resp.Header.Get("Location"))
+		return i18n.Errorf("api.redirect", path, resp.StatusCode, RedactURL(resp.Header.Get("Location")))
 	case resp.StatusCode != http.StatusOK:
 		return fmt.Errorf("%s: HTTP %d", path, resp.StatusCode)
 	}

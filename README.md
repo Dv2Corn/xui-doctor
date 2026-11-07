@@ -14,10 +14,12 @@ Output from a throwaway test panel (long lines shortened with "..."):
 
 ```
 $ XUI_API_TOKEN=... xui-doctor check --url http://127.0.0.1:12053/doctor-test/
-xui-doctor v0.1.0: http://127.0.0.1:12053/doctor-test
+xui-doctor v0.1.0: http://127.0.0.1:12053/***/
 panel: 3x-ui 3.11.0, Xray 26.10.21, auth: API token
 
 == CRITICAL ==
+- [xray] host "edge-host" -> inbound #1 "reality-ios" (vless, port 24443): ... share links here
+  use fp=edge, which has none, so clients using them cannot connect
 - [xray] inbound #1 "reality-ios" (vless, port 24443): Xray 26.10.21 (>= 26.9.8) refuses REALITY
   ClientHellos without an X25519MLKEM768 key share; share links here use fp=ios, which has none,
   so clients using them cannot connect
@@ -128,7 +130,7 @@ are never printed.
 | ID | What it looks at |
 |---|---|
 | `xray` | Xray state and version against the REALITY changes below; uTLS fingerprints of REALITY inbounds and of subscription hosts; the hosts' "Mihomo X25519" switch |
-| `reality` | target, serverNames, privateKey, shortIds exactly as Xray-core validates them; empty public key for links; `show`; with `--local`/`--dial-targets`: TLS 1.3, h2 and a valid certificate for every serverName at the target |
+| `reality` | target, serverNames, privateKey, minClientVer, shortIds exactly as Xray-core validates them; empty public key for links; `show`; with `--local`/`--dial-targets`, for inbounds on the panel's own Xray (not on nodes): TLS 1.3, h2 and a valid certificate for every serverName at the target |
 | `tls` | expiry of inline certificates of TLS inbounds and of the certificate the panel presented; with `--local` also certificate files of inbounds, panel and subscription server (expired: CRITICAL, < 7 days: WARN) |
 | `ports` | enabled inbounds (and the panel / subscription server) that would bind the same port and transport on the same address, using the panel's own TCP/UDP rules; with `--local` enabled inbounds nobody listens on |
 | `clients` | clients past expiry or over quota but still enabled; two clients sharing one UUID/password inside an inbound; IP limits while fail2ban is unusable |

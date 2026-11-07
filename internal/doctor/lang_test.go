@@ -37,6 +37,9 @@ func TestRussianReport(t *testing.T) {
 			t.Errorf("Russian report lacks %q", want)
 		}
 	}
+	if strings.Contains(out, "xd-base") || !strings.Contains(out, "/***/") {
+		t.Errorf("the base path must not be printed:\n%s", out)
+	}
 	for _, english := range []string{"fix:", "summary:", "two-factor", "refuses", "inbound #", "not checked", "auth:"} {
 		if strings.Contains(out, english) {
 			t.Errorf("Russian report still contains %q", english)
@@ -46,6 +49,9 @@ func TestRussianReport(t *testing.T) {
 	var j bytes.Buffer
 	if err := report.JSON(&j, h, fs); err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(j.String(), "xd-base") {
+		t.Errorf("JSON must not carry the base path:\n%s", j.String())
 	}
 	if !strings.Contains(j.String(), `"message": "two-factor authentication is off"`) || !strings.Contains(j.String(), `"id": "security.no_2fa"`) ||
 		strings.Contains(j.String(), "двухфакторная") {

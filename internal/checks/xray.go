@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"errors"
 	"sort"
 	"strings"
 
@@ -111,7 +112,7 @@ func checkXrayCompat(s *Snapshot) []Finding {
 	case version.AtLeast(xv, xrayMinClientVerDefault):
 		warned := 0
 		for _, ib := range reality {
-			if strings.TrimSpace(ib.Stream.RealitySettings.MinClientVer) != "" {
+			if v := ib.Stream.RealitySettings.MinClientVer; v != "" && ValidClientVer(v) {
 				continue
 			}
 			out = append(out, newFinding(Warn, ib.label(), i18n.T("xray.min_client_ver", xv.String()), i18n.T("xray.min_client_ver.fix")))
@@ -178,8 +179,16 @@ func mlkemFindings(s *Snapshot, xv version.V, reality []*Inbound) []Finding {
 	for _, place := range mihomoHosts {
 		out = append(out, newFinding(Critical, place, i18n.T("xray.mihomo_host", head), i18n.T("xray.mihomo_host.fix", pinFix)))
 	}
+	if f, ok := s.skipped("hosts"); ok && !notFound(s.Errors["hosts"]) {
+		out = append(out, f) // host fingerprints were not checked; 404 is a 2.x panel without hosts
+	}
 	out = append(out, newFinding(Warn, i18n.T("subj.reality_clients"), i18n.T("xray.clients", head), i18n.T("xray.clients.fix", pinFix)))
 	return out
+}
+
+func notFound(err error) bool {
+	var ce *i18n.Error
+	return errors.As(err, &ce) && ce.Text.ID == "api.http404"
 }
 
 type hostRef struct {
