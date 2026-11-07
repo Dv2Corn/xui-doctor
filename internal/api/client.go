@@ -154,13 +154,15 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 // Inbounds reads GET /panel/api/inbounds/list.
 func (c *Client) Inbounds(ctx context.Context) ([]Inbound, error) {
 	var in []Inbound
-	return in, c.getObj(ctx, http.MethodGet, "/panel/api/inbounds/list", &in)
+	err := c.getObj(ctx, http.MethodGet, "/panel/api/inbounds/list", &in)
+	return in, err
 }
 
 // Hosts reads GET /panel/api/hosts/list (subscription host overrides, 3x-ui 3.x).
 func (c *Client) Hosts(ctx context.Context) ([]HostGroup, error) {
 	var h []HostGroup
-	return h, c.getObj(ctx, http.MethodGet, "/panel/api/hosts/list", &h)
+	err := c.getObj(ctx, http.MethodGet, "/panel/api/hosts/list", &h)
+	return h, err
 }
 
 // Settings reads POST /panel/api/setting/all. The route is POST but only reads;

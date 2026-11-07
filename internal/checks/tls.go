@@ -49,7 +49,7 @@ func checkTLS(s *Snapshot) []Finding {
 		for _, c := range ib.Stream.TLSSettings.Certificates {
 			switch {
 			case c.InlinePEM() != "":
-				cert, err := parsePEM([]byte(c.InlinePEM()))
+				cert, err := ParsePEM([]byte(c.InlinePEM()))
 				if err != nil {
 					out = append(out, newFinding(Critical, ib.label(), i18n.T("tls.inline_bad", err), i18n.Text{}))
 					continue
@@ -96,7 +96,8 @@ func certFinding(now time.Time, subject i18n.Text, c *x509.Certificate, fix i18n
 	return []Finding{newFinding(OK, subject, i18n.T("tls.valid_until", exp), i18n.Text{})}
 }
 
-func parsePEM(data []byte) (*x509.Certificate, error) {
+// ParsePEM returns the first certificate in PEM data.
+func ParsePEM(data []byte) (*x509.Certificate, error) {
 	for {
 		var b *pem.Block
 		b, data = pem.Decode(data)
@@ -108,9 +109,6 @@ func parsePEM(data []byte) (*x509.Certificate, error) {
 		}
 	}
 }
-
-// ParsePEM is exported for package local.
-func ParsePEM(data []byte) (*x509.Certificate, error) { return parsePEM(data) }
 
 func roundDuration(d time.Duration) i18n.Text {
 	if d >= 48*time.Hour {

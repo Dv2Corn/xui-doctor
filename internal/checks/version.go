@@ -14,12 +14,6 @@ func ReleaseRepo(kind string) string {
 }
 
 func checkVersion(s *Snapshot) []Finding {
-	if s.Status == nil {
-		if f, ok := s.skipped("status"); ok {
-			return []Finding{f}
-		}
-		return nil
-	}
 	cur := s.Status.PanelVersion
 	desc := i18n.T("version.desc", s.Kind, cur)
 	if s.Kind == KindStillUI && s.Status.UpstreamVersion != "" {

@@ -397,6 +397,27 @@ func TestPorts(t *testing.T) {
 	}
 }
 
+// Conflicts on the same port and transport on different nodes come out in node order.
+func TestPortsNodeOrder(t *testing.T) {
+	var ibs []Inbound
+	for id := 1; id <= 6; id++ {
+		n := (id + 1) / 2
+		ib := realityInbound(id, 443, "chrome", nil)
+		ib.NodeID = &n
+		ibs = append(ibs, ib)
+	}
+	for range 20 {
+		fs := checkPorts(snap("26.10.31", ibs...))
+		var got []string
+		for _, f := range fs {
+			got = append(got, f.Subject)
+		}
+		if want := "tcp/443 on node #1,tcp/443 on node #2,tcp/443 on node #3"; strings.Join(got, ",") != want {
+			t.Fatalf("order: %v", got)
+		}
+	}
+}
+
 func TestTransports(t *testing.T) {
 	mk := func(proto, settings, stream string) []string {
 		ib := DecodeInbounds([]api.Inbound{{Protocol: proto, Settings: api.JSONDoc(settings), StreamSettings: api.JSONDoc(stream)}})[0]

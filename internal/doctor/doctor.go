@@ -21,20 +21,15 @@ type Options struct {
 	Probe    checks.Probe
 }
 
-// ErrFatal wraps errors that stop the run (no connection, login refused, no status).
-type ErrFatal struct{ Err error }
-
-func (e ErrFatal) Error() string { return e.Err.Error() }
-func (e ErrFatal) Unwrap() error { return e.Err }
-
 // Collect logs in, reads everything the checks need and logs out again.
+// An error means the run cannot go on (no connection, login refused, no status).
 func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 	c, err := api.New(o.URL, o.Creds, o.Insecure, o.Timeout)
 	if err != nil {
-		return nil, ErrFatal{err}
+		return nil, err
 	}
 	if err := c.Login(ctx); err != nil {
-		return nil, ErrFatal{err}
+		return nil, err
 	}
 	defer func() {
 		lctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -61,7 +56,7 @@ func Collect(ctx context.Context, o Options) (*checks.Snapshot, error) {
 
 	st, err := c.Status(ctx)
 	if err != nil {
-		return nil, ErrFatal{err}
+		return nil, err
 	}
 	s.Status = st
 	s.Kind = checks.Kind3XUI

@@ -24,11 +24,11 @@ import (
 	"github.com/Dv2Corn/xui-doctor/internal/i18n"
 )
 
+// timeout bounds each DNS lookup and TLS handshake.
+const timeout = 5 * time.Second
+
 // Probe is the real implementation of checks.Probe.
 type Probe struct {
-	Timeout time.Duration
-	// ProcNet is the directory holding tcp, tcp6, udp, udp6 (default /proc/net).
-	ProcNet string
 	// AllowNonPublic lets DialTLS connect to loopback/private/special
 	// addresses (--local). Otherwise the dialer refuses them on the address it
 	// actually connects to.
@@ -66,13 +66,9 @@ func (p *Probe) Listening() (map[string]bool, error) {
 	if runtime.GOOS != "linux" {
 		return nil, i18n.Errorf("local.linux_only")
 	}
-	dir := p.ProcNet
-	if dir == "" {
-		dir = "/proc/net"
-	}
 	out := map[string]bool{}
 	for _, f := range []struct{ file, proto string }{{"tcp", "tcp"}, {"tcp6", "tcp"}, {"udp", "udp"}, {"udp6", "udp"}} {
-		if err := parseProcNet(dir+"/"+f.file, f.proto, out); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := parseProcNet("/proc/net/"+f.file, f.proto, out); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, err
 		}
 	}
@@ -117,7 +113,7 @@ func parseProcNet(path, proto string, out map[string]bool) error {
 
 // LookupIP resolves host with the system resolver.
 func (p *Probe) LookupIP(host string) ([]net.IP, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout())
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
@@ -130,17 +126,9 @@ func (p *Probe) LookupIP(host string) ([]net.IP, error) {
 	return ips, nil
 }
 
-func (p *Probe) timeout() time.Duration {
-	if p.Timeout > 0 {
-		return p.Timeout
-	}
-	return 5 * time.Second
-}
-
 // DialTLS performs a TLS handshake like a browser would (SNI, h2 + http/1.1)
 // and verifies the certificate for sni against the system roots.
 func (p *Probe) DialTLS(addr, sni string) (*checks.TLSResult, error) {
-	timeout := p.timeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	d := tls.Dialer{
@@ -160,12 +148,12 @@ func (p *Probe) DialTLS(addr, sni string) (*checks.TLSResult, error) {
 	cs := conn.(*tls.Conn).ConnectionState()
 	res := &checks.TLSResult{Version: cs.Version, ALPN: cs.NegotiatedProtocol}
 	if len(cs.PeerCertificates) > 0 {
-		res.Leaf = cs.PeerCertificates[0]
+		leaf := cs.PeerCertificates[0]
 		inter := x509.NewCertPool()
 		for _, c := range cs.PeerCertificates[1:] {
 			inter.AddCert(c)
 		}
-		_, res.VerifyError = res.Leaf.Verify(x509.VerifyOptions{DNSName: sni, Intermediates: inter})
+		_, res.VerifyError = leaf.Verify(x509.VerifyOptions{DNSName: sni, Intermediates: inter})
 		var ua x509.UnknownAuthorityError
 		res.UnknownRoot = errors.As(res.VerifyError, &ua)
 	} else {

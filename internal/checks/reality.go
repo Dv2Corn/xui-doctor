@@ -97,7 +97,7 @@ func dialTarget(s *Snapshot, ib *Inbound, target string, names []string) []Findi
 		switch {
 		case strings.HasPrefix(target, "/") || strings.HasPrefix(target, "@"):
 			return []Finding{newFinding(Info, ib.label(), i18n.T("reality.unix_target"), i18n.Text{})}
-		case isAllDigits(target):
+		case target != "" && strings.Trim(target, "0123456789") == "":
 			host, port = "127.0.0.1", target
 		default:
 			host, port = target, "443"
@@ -218,16 +218,4 @@ func PublicAddr(a netip.Addr) bool {
 func publicIP(ip net.IP) bool {
 	a, ok := netip.AddrFromSlice(ip)
 	return ok && PublicAddr(a)
-}
-
-func isAllDigits(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
 }

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestParseProcNet(t *testing.T) {
@@ -51,10 +50,10 @@ func TestDialTLS(t *testing.T) {
 	srv.StartTLS()
 	defer srv.Close()
 	addr := strings.TrimPrefix(srv.URL, "https://")
-	if _, err := (&Probe{Timeout: 3 * time.Second}).DialTLS(addr, "example.com"); err == nil || !strings.Contains(err.Error(), "non-public") {
+	if _, err := (&Probe{}).DialTLS(addr, "example.com"); err == nil || !strings.Contains(err.Error(), "non-public") {
 		t.Fatalf("loopback must be refused without AllowNonPublic: %v", err)
 	}
-	p := &Probe{Timeout: 3 * time.Second, AllowNonPublic: true}
+	p := &Probe{AllowNonPublic: true}
 	res, err := p.DialTLS(addr, "example.com")
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +89,7 @@ func TestReadCertFile(t *testing.T) {
 }
 
 func TestLookupIP(t *testing.T) {
-	ips, err := (&Probe{Timeout: 2 * time.Second}).LookupIP("localhost")
+	ips, err := (&Probe{}).LookupIP("localhost")
 	if err != nil || len(ips) == 0 || !ips[0].IsLoopback() {
 		t.Fatalf("localhost: %v %v", ips, err)
 	}

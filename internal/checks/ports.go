@@ -1,10 +1,11 @@
 package checks
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/Dv2Corn/xui-doctor/internal/i18n"
@@ -133,15 +134,8 @@ func checkPorts(s *Snapshot) []Finding {
 			groups[k] = append(groups[k], binder{name: i18n.T("ports.sub"), listen: s.Settings.SubListen})
 		}
 	}
-	keys := make([]key, 0, len(groups))
-	for k := range groups {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].port != keys[j].port {
-			return keys[i].port < keys[j].port
-		}
-		return keys[i].proto < keys[j].proto
+	keys := slices.SortedFunc(maps.Keys(groups), func(a, b key) int {
+		return cmp.Or(cmp.Compare(a.port, b.port), cmp.Compare(a.proto, b.proto), cmp.Compare(a.node, b.node))
 	})
 	var out []Finding
 	for _, k := range keys {

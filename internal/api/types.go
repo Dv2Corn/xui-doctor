@@ -47,14 +47,6 @@ func (d *JSONDoc) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON writes the document embedded.
-func (d JSONDoc) MarshalJSON() ([]byte, error) {
-	if len(bytes.TrimSpace(d)) == 0 {
-		return []byte("null"), nil
-	}
-	return d, nil
-}
-
 // Inbound mirrors model.Inbound as returned by GET /panel/api/inbounds/list.
 type Inbound struct {
 	ID             int             `json:"id"`
@@ -67,16 +59,11 @@ type Inbound struct {
 	StreamSettings JSONDoc         `json:"streamSettings"`
 	Tag            string          `json:"tag"`
 	NodeID         *int            `json:"nodeId"`
-	ExpiryTime     int64           `json:"expiryTime"`
-	Total          int64           `json:"total"`
-	Up             int64           `json:"up"`
-	Down           int64           `json:"down"`
 	ClientStats    []ClientTraffic `json:"clientStats"`
 }
 
 // ClientTraffic mirrors xray.ClientTraffic (the per-client counters row).
 type ClientTraffic struct {
-	InboundID  int    `json:"inboundId"`
 	Enable     bool   `json:"enable"`
 	Email      string `json:"email"`
 	Up         int64  `json:"up"`
@@ -87,7 +74,6 @@ type ClientTraffic struct {
 
 // HostGroup mirrors entity.HostGroup from GET /panel/api/hosts/list (3x-ui 3.x "Hosts").
 type HostGroup struct {
-	GroupID      string `json:"groupId"`
 	InboundIDs   []int  `json:"inboundIds"`
 	Remark       string `json:"remark"`
 	IsDisabled   bool   `json:"isDisabled"`
@@ -100,12 +86,10 @@ type HostGroup struct {
 // The panel masks secret values in this response and reports has* flags instead.
 type Settings struct {
 	WebListen       string `json:"webListen"`
-	WebDomain       string `json:"webDomain"`
 	WebPort         int    `json:"webPort"`
 	WebCertFile     string `json:"webCertFile"`
 	WebKeyFile      string `json:"webKeyFile"`
 	WebBasePath     string `json:"webBasePath"`
-	SessionMaxAge   int    `json:"sessionMaxAge"`
 	TgBotEnable     bool   `json:"tgBotEnable"`
 	HasTgBotToken   bool   `json:"hasTgBotToken"`
 	TwoFactorEnable bool   `json:"twoFactorEnable"`
@@ -113,7 +97,6 @@ type Settings struct {
 	SubListen       string `json:"subListen"`
 	SubPort         int    `json:"subPort"`
 	SubCertFile     string `json:"subCertFile"`
-	SubKeyFile      string `json:"subKeyFile"`
 	SubPath         string `json:"subPath"`
 	SubURI          string `json:"subURI"`
 	SubJSONEnable   bool   `json:"subJsonEnable"`

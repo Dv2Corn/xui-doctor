@@ -84,10 +84,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Probe:    &local.Probe{AllowNonPublic: opt.local},
 	})
 	if err != nil {
-		var fe doctor.ErrFatal
-		if errors.As(err, &fe) {
-			err = fe.Err
-		}
 		fmt.Fprintln(stderr, "xui-doctor:", report.Clean(i18n.ErrorIn(err, lang)))
 		if strings.Contains(err.Error(), "x509:") && !opt.insecure {
 			say(stderr, i18n.T("cli.hint_insecure"))
