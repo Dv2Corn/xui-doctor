@@ -10,19 +10,17 @@ import (
 // V is a parsed version. Missing components are zero.
 type V struct {
 	Parts [3]int
-	Raw   string
 }
 
 // Parse accepts "26.10.31", "v26.10.31", "Xray 26.10.31 (...)" and similar.
 // It returns ok=false when no leading numeric x.y[.z] is found.
 func Parse(s string) (V, bool) {
-	raw := strings.TrimSpace(s)
-	t := raw
+	t := strings.TrimSpace(s)
 	// Skip a product prefix like "Xray " and a leading "v".
 	if i := strings.IndexFunc(t, func(r rune) bool { return r >= '0' && r <= '9' }); i > 0 {
 		t = t[i:]
 	} else if i < 0 {
-		return V{Raw: raw}, false
+		return V{}, false
 	}
 	// Cut at the first character that is not a digit or a dot.
 	end := strings.IndexFunc(t, func(r rune) bool { return (r < '0' || r > '9') && r != '.' })
@@ -31,14 +29,13 @@ func Parse(s string) (V, bool) {
 	}
 	fields := strings.Split(strings.Trim(t, "."), ".")
 	if len(fields) < 2 {
-		return V{Raw: raw}, false
+		return V{}, false
 	}
 	var v V
-	v.Raw = raw
 	for i := 0; i < len(fields) && i < 3; i++ {
 		n, err := strconv.Atoi(fields[i])
 		if err != nil {
-			return V{Raw: raw}, false
+			return V{}, false
 		}
 		v.Parts[i] = n
 	}

@@ -27,16 +27,10 @@ const (
 )
 
 func (s Severity) String() string {
-	switch s {
-	case OK:
-		return "OK"
-	case Info:
-		return "INFO"
-	case Warn:
-		return "WARN"
-	default:
-		return "CRITICAL"
+	if s >= OK && s < Critical {
+		return [...]string{"OK", "INFO", "WARN"}[s]
 	}
+	return "CRITICAL"
 }
 
 // MarshalJSON writes the severity as its name.
@@ -142,7 +136,6 @@ const MaxTargetProbes = 20
 type TLSResult struct {
 	Version     uint16
 	ALPN        string
-	Leaf        *x509.Certificate
 	VerifyError error // nil when the chain verifies for the SNI with system roots
 	// UnknownRoot is true when VerifyError only says the chain does not lead
 	// to a root this machine trusts (often: no CA bundle installed).
@@ -151,21 +144,20 @@ type TLSResult struct {
 
 // Check is one named check.
 type Check struct {
-	ID   string
-	Name string
-	Run  func(*Snapshot) []Finding
+	ID  string
+	Run func(*Snapshot) []Finding
 }
 
 // All returns the checks in report order.
 func All() []Check {
 	return []Check{
-		{ID: "xray", Name: "Xray core and REALITY client compatibility", Run: checkXrayCompat},
-		{ID: "reality", Name: "REALITY inbound settings", Run: checkReality},
-		{ID: "tls", Name: "TLS certificates", Run: checkTLS},
-		{ID: "ports", Name: "Port conflicts", Run: checkPorts},
-		{ID: "clients", Name: "Clients", Run: checkClients},
-		{ID: "security", Name: "Panel security", Run: checkSecurity},
-		{ID: "version", Name: "Panel version", Run: checkVersion},
+		{ID: "xray", Run: checkXrayCompat},
+		{ID: "reality", Run: checkReality},
+		{ID: "tls", Run: checkTLS},
+		{ID: "ports", Run: checkPorts},
+		{ID: "clients", Run: checkClients},
+		{ID: "security", Run: checkSecurity},
+		{ID: "version", Run: checkVersion},
 	}
 }
 
@@ -208,14 +200,12 @@ type Inbound struct {
 // Client is the part of settings.clients[] the checks use. Secrets (id,
 // password, auth) are only compared with each other, never printed.
 type Client struct {
-	ID         string `json:"id"`
-	Password   string `json:"password"`
-	Auth       string `json:"auth"`
-	Email      string `json:"email"`
-	Enable     bool   `json:"enable"`
-	LimitIP    int    `json:"limitIp"`
-	TotalGB    int64  `json:"totalGB"`
-	ExpiryTime int64  `json:"expiryTime"`
+	ID       string `json:"id"`
+	Password string `json:"password"`
+	Auth     string `json:"auth"`
+	Email    string `json:"email"`
+	Enable   bool   `json:"enable"`
+	LimitIP  int    `json:"limitIp"`
 }
 
 // Stream is the part of streamSettings the checks use.
@@ -240,8 +230,6 @@ type RealitySettings struct {
 	Settings     struct {
 		PublicKey   string `json:"publicKey"`
 		Fingerprint string `json:"fingerprint"`
-		ServerName  string `json:"serverName"`
-		SpiderX     string `json:"spiderX"`
 	} `json:"settings"`
 }
 
@@ -312,7 +300,6 @@ func ValidClientVer(v string) bool {
 
 // TLSSettings is the part of tlsSettings the checks use.
 type TLSSettings struct {
-	ServerName   string    `json:"serverName"`
 	Certificates []TLSCert `json:"certificates"`
 }
 
@@ -381,8 +368,6 @@ func (s *Snapshot) skipped(section string) (Finding, bool) {
 	}
 	var name any = section
 	switch section {
-	case "status":
-		name = i18n.T("section.status")
 	case "inbounds":
 		name = i18n.T("section.inbounds")
 	case "hosts":

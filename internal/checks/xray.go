@@ -2,7 +2,8 @@ package checks
 
 import (
 	"errors"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/Dv2Corn/xui-doctor/internal/i18n"
@@ -51,12 +52,6 @@ type fpUse struct {
 
 func checkXrayCompat(s *Snapshot) []Finding {
 	var out []Finding
-	if s.Status == nil {
-		if f, ok := s.skipped("status"); ok {
-			return []Finding{f}
-		}
-		return nil
-	}
 	x := s.Status.Xray
 	switch strings.ToLower(x.State) {
 	case "running", "":
@@ -138,9 +133,7 @@ func mlkemFindings(s *Snapshot, xv version.V, reality []*Inbound) []Finding {
 		byID[ib.ID] = ib
 		uses = append(uses, fpUse{ib: ib, fp: ib.Stream.RealitySettings.Settings.Fingerprint})
 	}
-	for _, h := range hostRefs(s, byID) {
-		uses = append(uses, fpUse{ib: h.ib, host: true, remark: h.remark, fp: h.fp, mihomo: h.mihomo})
-	}
+	uses = append(uses, hostUses(s, byID)...)
 
 	refused := map[string][]i18n.Text{} // fp -> places
 	random := map[string][]i18n.Text{}
@@ -165,13 +158,13 @@ func mlkemFindings(s *Snapshot, xv version.V, reality []*Inbound) []Finding {
 			out = append(out, newFinding(Info, place, i18n.T("xray.fp_untested", u.fp), i18n.Text{}))
 		}
 	}
-	for _, fp := range sortedKeys(refused) {
+	for _, fp := range slices.Sorted(maps.Keys(refused)) {
 		for _, place := range refused[fp] {
 			out = append(out, newFinding(Critical, place, i18n.T("xray.fp_refused", head, fp),
 				i18n.T("xray.fp_refused.fix", pinFix, i18n.T("xray.size_note"))))
 		}
 	}
-	for _, fp := range sortedKeys(random) {
+	for _, fp := range slices.Sorted(maps.Keys(random)) {
 		for _, place := range random[fp] {
 			out = append(out, newFinding(Warn, place, i18n.T("xray.fp_random", head, fp), i18n.T("xray.fp_random.fix", pinFix)))
 		}
@@ -191,17 +184,10 @@ func notFound(err error) bool {
 	return errors.As(err, &ce) && ce.Text.ID == "api.http404"
 }
 
-type hostRef struct {
-	ib     *Inbound
-	remark string
-	fp     string
-	mihomo bool
-}
-
-// hostRefs lists enabled subscription hosts that point at REALITY inbounds
+// hostUses lists enabled subscription hosts that point at REALITY inbounds
 // and keep REALITY security ("same" or "reality").
-func hostRefs(s *Snapshot, reality map[int]*Inbound) []hostRef {
-	var out []hostRef
+func hostUses(s *Snapshot, reality map[int]*Inbound) []fpUse {
+	var out []fpUse
 	for _, h := range s.Hosts {
 		if h.IsDisabled {
 			continue
@@ -212,18 +198,9 @@ func hostRefs(s *Snapshot, reality map[int]*Inbound) []hostRef {
 		}
 		for _, id := range h.InboundIDs {
 			if ib, ok := reality[id]; ok {
-				out = append(out, hostRef{ib: ib, remark: h.Remark, fp: h.Fingerprint, mihomo: h.MihomoX25519})
+				out = append(out, fpUse{ib: ib, host: true, remark: h.Remark, fp: h.Fingerprint, mihomo: h.MihomoX25519})
 			}
 		}
 	}
 	return out
-}
-
-func sortedKeys(m map[string][]i18n.Text) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

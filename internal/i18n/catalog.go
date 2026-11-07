@@ -89,7 +89,6 @@ LC_MESSAGES или LANG начинается с "ru". Вывод JSON всегд
 	// Shared pieces.
 	"check.ok":              {`no problems found`, `проблем не найдено`},
 	"check.skipped":         {`skipped: could not read %s (%s)`, `пропущено: не удалось прочитать %s (%s)`},
-	"section.status":        {`status`, `статус`},
 	"section.inbounds":      {`inbounds`, `входы`},
 	"section.hosts":         {`hosts`, `хосты`},
 	"section.settings":      {`settings`, `настройки`},

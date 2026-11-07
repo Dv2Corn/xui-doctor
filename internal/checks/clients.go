@@ -1,7 +1,8 @@
 package checks
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/Dv2Corn/xui-doctor/internal/i18n"
@@ -100,11 +101,7 @@ func clientSecret(protocol string, c Client) string {
 }
 
 func list(m map[string]bool) any {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(m))
 	if len(keys) > 10 {
 		return i18n.T("list.more", strings.Join(keys[:10], ", "), len(keys)-10)
 	}
